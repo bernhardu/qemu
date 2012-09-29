@@ -191,7 +191,7 @@ static inline void tlb_flush_by_mmuidx(CPUState *cpu, ...)
 #define CODE_GEN_AVG_BLOCK_SIZE 150
 #endif
 
-#if defined(__arm__) || defined(_ARCH_PPC) \
+#if defined(__alpha__) || defined(__arm__) || defined(_ARCH_PPC) \
     || defined(__x86_64__) || defined(__i386__) \
     || defined(__sparc__) || defined(__aarch64__) \
     || defined(__s390x__) || defined(__mips__) \
@@ -292,17 +292,24 @@ void aarch64_tb_set_jmp_target(uintptr_t jmp_addr, uintptr_t addr);
 #elif defined(__arm__)
 void arm_tb_set_jmp_target(uintptr_t jmp_addr, uintptr_t addr);
 #define tb_set_jmp_target1 arm_tb_set_jmp_target
+#elif defined(__alpha__)
+void tb_set_jmp_target2(TranslationBlock *tb, uintptr_t, uintptr_t);
+#define tb_set_jmp_target2 tb_set_jmp_target2
 #elif defined(__sparc__) || defined(__mips__)
 void tb_set_jmp_target1(uintptr_t jmp_addr, uintptr_t addr);
 #else
 #error tb_set_jmp_target1 is missing
 #endif
 
+#ifndef tb_set_jmp_target2
+# define tb_set_jmp_target2(TB, JA, A)  tb_set_jmp_target1(JA, A)
+#endif
+
 static inline void tb_set_jmp_target(TranslationBlock *tb,
                                      int n, uintptr_t addr)
 {
     uint16_t offset = tb->jmp_insn_offset[n];
-    tb_set_jmp_target1((uintptr_t)(tb->tc_ptr + offset), addr);
+    tb_set_jmp_target2(tb, (uintptr_t)(tb->tc_ptr + offset), addr);
 }
 
 #else
