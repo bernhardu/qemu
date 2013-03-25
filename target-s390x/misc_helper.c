@@ -467,3 +467,16 @@ uint32_t HELPER(sigp)(CPUS390XState *env, uint64_t order_code, uint32_t r1,
     return cc;
 }
 #endif
+
+uint32_t HELPER(stfle)(CPUS390XState *env, uint64_t addr)
+{
+    int max_m1 = (env->facilities[1] != 0);
+    int count_m1 = env->regs[0] & 0xff;
+
+    cpu_stq_data(env, addr, env->facilities[0]);
+    if (count_m1 > 0) {
+        cpu_stq_data(env, addr + 8, env->facilities[1]);
+    }
+    env->regs[0] = max_m1;
+    return (count_m1 >= max_m1 ? 0 : 3);
+}

@@ -3296,6 +3296,14 @@ static ExitStatus op_stura(DisasContext *s, DisasOps *o)
 }
 #endif
 
+static ExitStatus op_stfle(DisasContext *s, DisasOps *o)
+{
+    potential_page_fault(s);
+    gen_helper_stfle(cc_op, cpu_env, o->in2);
+    set_cc_static(s);
+    return NO_EXIT;
+}
+
 static ExitStatus op_st8(DisasContext *s, DisasOps *o)
 {
     tcg_gen_qemu_st8(o->in1, o->in2, get_mem_index(s));
