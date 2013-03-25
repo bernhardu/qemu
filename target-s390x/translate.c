@@ -55,6 +55,7 @@ struct DisasContext {
     const DisasInsn *insn;
     DisasFields *fields;
     uint64_t pc, next_pc;
+    uint64_t fac0;
     enum cc_op cc_op;
     bool singlestep_enabled;
 };
@@ -1095,33 +1096,10 @@ typedef enum {
     EXIT_NORETURN,
 } ExitStatus;
 
-typedef enum DisasFacility {
-    FAC_Z,                  /* zarch (default) */
-    FAC_CASS,               /* compare and swap and store */
-    FAC_CASS2,              /* compare and swap and store 2*/
-    FAC_DFP,                /* decimal floating point */
-    FAC_DFPR,               /* decimal floating point rounding */
-    FAC_DO,                 /* distinct operands */
-    FAC_EE,                 /* execute extensions */
-    FAC_EI,                 /* extended immediate */
-    FAC_FPE,                /* floating point extension */
-    FAC_FPSSH,              /* floating point support sign handling */
-    FAC_FPRGR,              /* FPR-GR transfer */
-    FAC_GIE,                /* general instructions extension */
-    FAC_HFP_MA,             /* HFP multiply-and-add/subtract */
-    FAC_HW,                 /* high-word */
-    FAC_IEEEE_SIM,          /* IEEE exception sumilation */
-    FAC_LOC,                /* load/store on condition */
-    FAC_LD,                 /* long displacement */
-    FAC_PC,                 /* population count */
-    FAC_SCF,                /* store clock fast */
-    FAC_SFLE,               /* store facility list extended */
-} DisasFacility;
-
 struct DisasInsn {
     unsigned opc:16;
     DisasFormat fmt:8;
-    DisasFacility fac:8;
+    S390Facility fac:8;
     unsigned spec:8;
 
     const char *name;
@@ -3236,10 +3214,9 @@ static ExitStatus op_spt(DisasContext *s, DisasOps *o)
 static ExitStatus op_stfl(DisasContext *s, DisasOps *o)
 {
     TCGv_i64 f, a;
-    /* We really ought to have more complete indication of facilities
-       that we implement.  Address this when STFLE is implemented.  */
+
     check_privileged(s);
-    f = tcg_const_i64(0xc0000000);
+    f = tcg_const_i64(s->fac0 >> 32);
     a = tcg_const_i64(200);
     tcg_gen_qemu_st32(f, a, get_mem_index(s));
     tcg_temp_free_i64(f);
@@ -4439,6 +4416,28 @@ static void in2_i2_32u_shl(DisasContext *s, DisasFields *f, DisasOps *o)
 
 /* ====================================================================== */
 
+/* Abbreviations for facilities used in the table.  */
+#define DFAC_Z               FAC_ZARCH
+#define DFAC_CASS            FAC_COMPARE_AND_SWAP_AND_STORE
+#define DFAC_CASS2           FAC_COMPARE_AND_SWAP_AND_STORE_2
+#define DFAC_DFP             FAC_DFP
+#define DFAC_DFPR            FAC_FLOATING_POINT_SUPPPORT_ENH
+#define DFAC_DO              FAC_MULTI_45
+#define DFAC_EE              FAC_EXECUTE_EXT
+#define DFAC_EI              FAC_EXTENDED_IMMEDIATE
+#define DFAC_FPE             FAC_FLOATING_POINT_EXT
+#define DFAC_FPSSH           FAC_FLOATING_POINT_SUPPPORT_ENH
+#define DFAC_FPRGR           FAC_FLOATING_POINT_SUPPPORT_ENH
+#define DFAC_GIE             FAC_GENERAL_INSTRUCTIONS_EXT
+#define DFAC_HFP_MA          FAC_HFP_MADDSUB
+#define DFAC_HW              FAC_MULTI_45
+#define DFAC_IEEEE_SIM       FAC_FLOATING_POINT_SUPPPORT_ENH
+#define DFAC_LOC             FAC_MULTI_45
+#define DFAC_LD              FAC_LONG_DISPLACEMENT
+#define DFAC_PC              FAC_MULTI_45
+#define DFAC_SCF             FAC_STORE_CLOCK_FAST
+#define DFAC_SFLE            FAC_STFLE
+
 /* Find opc within the table of insns.  This is formulated as a switch
    statement so that (1) we get compile-time notice of cut-paste errors
    for duplicated opcodes, and (2) the compiler generates the binary
@@ -4457,7 +4456,7 @@ enum DisasInsnEnum {
 #define D(OPC, NM, FT, FC, I1, I2, P, W, OP, CC, D) {                       \
     .opc = OPC,                                                             \
     .fmt = FMT_##FT,                                                        \
-    .fac = FAC_##FC,                                                        \
+    .fac = DFAC_##FC,                                                        \
     .spec = SPEC_in1_##I1 | SPEC_in2_##I2 | SPEC_prep_##P | SPEC_wout_##W,  \
     .name = #NM,                                                            \
     .help_in1 = in1_##I1,                                                   \
@@ -4649,6 +4648,16 @@ static ExitStatus translate_one(CPUS390XState *env, DisasContext *s)
         return EXIT_NORETURN;
     }
 
+    /* Check for operation exceptions for insns that have been disabled.
+       Do this by shifting the facilities word0 up by the IBM big-endian
+       bit numbering, leaving the bit to be tested in the sign bit.
+       Note that TCG does not currently support any facilities in word1.  */
+    assert(insn->fac < 64);
+    if ((int64_t)(s->fac0 << insn->fac) >= 0) {
+        gen_program_exception(s, PGM_OPERATION);
+        return EXIT_NORETURN;
+    }
+
     /* Check for insn specification exceptions.  */
     if (insn->spec) {
         int spec = insn->spec, excp = 0, r;
@@ -4767,6 +4776,7 @@ static inline void gen_intermediate_code_internal(S390CPU *cpu,
     dc.tb = tb;
     dc.pc = pc_start;
     dc.cc_op = CC_OP_DYNAMIC;
+    dc.fac0 = env->facilities[0];
     do_debug = dc.singlestep_enabled = cs->singlestep_enabled;
 
     gen_opc_end = tcg_ctx.gen_opc_buf + OPC_MAX_SIZE;

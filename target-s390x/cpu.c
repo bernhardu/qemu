@@ -173,6 +173,70 @@ static void s390_cpu_realizefn(DeviceState *dev, Error **errp)
     scc->parent_realize(dev, errp);
 }
 
+#define FAC0_TCG \
+    ( FAC_BIT(0, FAC_N3) \
+    | FAC_BIT(0, FAC_ZARCH) \
+    | FAC_BIT(0, FAC_ZARCH_ACTIVE) \
+    | FAC_BIT(0, FAC_STFLE) \
+    | FAC_BIT(0, FAC_LONG_DISPLACEMENT) \
+    | FAC_BIT(0, FAC_LONG_DISPLACEMENT_FAST) \
+    | FAC_BIT(0, FAC_EXTENDED_IMMEDIATE) \
+    | FAC_BIT(0, FAC_GENERAL_INSTRUCTIONS_EXT) \
+    | FAC_BIT(0, FAC_FLOATING_POINT_EXT) \
+    | FAC_BIT(0, FAC_FLOATING_POINT_SUPPPORT_ENH))
+    /* ??? We may have most of the collection of facilities at bit 45.  */
+
+/* ??? These lists of facilities gleaned from arch/s390/kernel/head.S.  */
+#define FAC0_Z900 \
+    ( FAC_BIT(0, FAC_N3) \
+    | FAC_BIT(0, FAC_ZARCH) \
+    | FAC_BIT(0, FAC_ZARCH_ACTIVE))
+
+#define FAC0_Z990 \
+    ( FAC0_Z900 \
+    | FAC_BIT(0, FAC_LONG_DISPLACEMENT) \
+    | FAC_BIT(0, FAC_LONG_DISPLACEMENT_FAST))
+
+#define FAC0_Z9_109 \
+    ( FAC0_Z990 \
+    | FAC_BIT(0, FAC_STFLE) \
+    | FAC_BIT(0, FAC_EXTENDED_TRANSLATION_2) \
+    | FAC_BIT(0, FAC_MESSAGE_SECURITY_ASSIST) \
+    | FAC_BIT(0, FAC_LONG_DISPLACEMENT) \
+    | FAC_BIT(0, FAC_LONG_DISPLACEMENT_FAST) \
+    | FAC_BIT(0, FAC_HFP_MADDSUB) \
+    | FAC_BIT(0, FAC_EXTENDED_IMMEDIATE) \
+    | FAC_BIT(0, FAC_EXTENDED_TRANSLATION_3) \
+    | FAC_BIT(0, FAC_HFP_UNNORMALIZED_EXT) \
+    | FAC_BIT(0, FAC_ETF2_ENH) \
+    | FAC_BIT(0, FAC_STORE_CLOCK_FAST) \
+    | FAC_BIT(0, FAC_ETF3_ENH) \
+    | FAC_BIT(0, FAC_EXTRACT_CPU_TIME))
+
+#define FAC0_Z10 \
+    ( FAC0_Z9_109 \
+    | FAC_BIT(0, FAC_COMPARE_AND_SWAP_AND_STORE) \
+    | FAC_BIT(0, FAC_COMPARE_AND_SWAP_AND_STORE_2) \
+    | FAC_BIT(0, FAC_GENERAL_INSTRUCTIONS_EXT) \
+    | FAC_BIT(0, FAC_EXECUTE_EXT) \
+    | FAC_BIT(0, FAC_FLOATING_POINT_SUPPPORT_ENH) \
+    | FAC_BIT(0, FAC_DFP) \
+    | FAC_BIT(0, FAC_PFPO))
+
+#define FAC0_Z196 \
+    ( FAC0_Z10 \
+    | FAC_BIT(0, FAC_FLOATING_POINT_EXT) \
+    | FAC_BIT(0, FAC_MULTI_45))
+
+#define FAC0_ZEC12 \
+    ( FAC0_Z196 \
+    | FAC_BIT(0, FAC_DFP_ZONED_CONVERSION) \
+    | FAC_BIT(0, FAC_MULTI_49) \
+    | FAC_BIT(0, FAC_CONSTRAINT_TRANSACTIONAL_EXE))
+#define FAC1_ZEC12 \
+    FAC_BIT(1, FAC_TRANSACTIONAL_EXE)
+
+
 static void s390_cpu_initfn(Object *obj)
 {
     CPUState *cs = CPU(obj);
@@ -198,6 +262,9 @@ static void s390_cpu_initfn(Object *obj)
 #endif
     env->cpu_num = cpu_num++;
     env->ext_index = -1;
+
+    env->facilities[0] = FAC0_TCG;
+    env->facilities[1] = 0;
 
     if (tcg_enabled() && !inited) {
         inited = true;

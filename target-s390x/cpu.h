@@ -79,6 +79,64 @@ typedef struct MchkQueue {
     uint16_t type;
 } MchkQueue;
 
+typedef enum {
+    FAC_N3                              = 0,
+    FAC_ZARCH                           = 1,
+    FAC_ZARCH_ACTIVE                    = 2,
+    FAC_DAT_ENH                         = 3,
+    FAC_ASN_LX_REUSE                    = 6,
+    FAC_STFLE                           = 7,
+    FAC_ENHANCED_DAT_1                  = 8,
+    FAC_SENSE_RUNNING_STATUS            = 9,
+    FAC_CONDITIONAL_SSKE                = 10,
+    FAC_CONFIGURATION_TOPOLOGY          = 11,
+    FAC_IPTE_RANGE                      = 13,
+    FAC_NONQ_KEY_SETTING                = 14,
+    FAC_EXTENDED_TRANSLATION_2          = 16,
+    FAC_MESSAGE_SECURITY_ASSIST         = 17,
+    FAC_LONG_DISPLACEMENT               = 18,
+    FAC_LONG_DISPLACEMENT_FAST          = 19,
+    FAC_HFP_MADDSUB                     = 20,
+    FAC_EXTENDED_IMMEDIATE              = 21,
+    FAC_EXTENDED_TRANSLATION_3          = 22,
+    FAC_HFP_UNNORMALIZED_EXT            = 23,
+    FAC_ETF2_ENH                        = 24,
+    FAC_STORE_CLOCK_FAST                = 25,
+    FAC_PARSING_ENH                     = 26,
+    FAC_MOVE_WITH_OPTIONAL_SPEC         = 27,
+    FAC_TOD_CLOCK_STEERING              = 28,
+    FAC_ETF3_ENH                        = 30,
+    FAC_EXTRACT_CPU_TIME                = 31,
+    FAC_COMPARE_AND_SWAP_AND_STORE      = 32,
+    FAC_COMPARE_AND_SWAP_AND_STORE_2    = 33,
+    FAC_GENERAL_INSTRUCTIONS_EXT        = 34,
+    FAC_EXECUTE_EXT                     = 35,
+    FAC_ENHANCED_MONITOR                = 36,
+    FAC_FLOATING_POINT_EXT              = 37,
+    FAC_SET_PROGRAM_PARAMETERS          = 40,
+    FAC_FLOATING_POINT_SUPPPORT_ENH     = 41,
+    FAC_DFP                             = 42,
+    FAC_DFP_FAST                        = 43,
+    FAC_PFPO                            = 44,
+    FAC_MULTI_45                        = 45,
+    FAC_CMPSC_ENH                       = 47,
+    FAC_DFP_ZONED_CONVERSION            = 48,
+    FAC_MULTI_49                        = 49,
+    FAC_CONSTRAINT_TRANSACTIONAL_EXE    = 50,
+    FAC_LOCAL_TLB_CLEARING              = 51,
+    FAC_INTERLOCKED_ACCESS_2            = 52,
+    FAC_RESET_REFERENCE_BITS_MULTIPLE   = 66,
+    FAC_CPU_MEASUREMENT_COUNTER         = 67,
+    FAC_CPU_MEASUREMENT_SAMPLING        = 68,
+    FAC_TRANSACTIONAL_EXE               = 73,
+    FAC_ACCESS_EXCEPTION_FS_INDICATION  = 75,
+    FAC_MESSAGE_SECURITY_ASSIST_3       = 76,
+    FAC_MESSAGE_SECURITY_ASSIST_4       = 77,
+    FAC_ENHANCED_DAT_2                  = 78,
+} S390Facility;
+
+#define FAC_BIT(WORD, BIT)  (BIT / 64 == WORD ? 1ull << (63 - BIT % 64) : 0)
+
 typedef struct CPUS390XState {
     uint64_t regs[16];     /* GP registers */
     CPU_DoubleU fregs[16]; /* FP registers */
@@ -132,6 +190,7 @@ typedef struct CPUS390XState {
     CPU_COMMON
 
     /* reset does memset(0) up to here */
+    uint64_t facilities[2];
 
     int cpu_num;
     uint8_t *storage_keys;
