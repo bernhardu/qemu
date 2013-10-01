@@ -266,6 +266,16 @@ static void s390_cpu_initfn(Object *obj)
     env->facilities[0] = FAC0_TCG;
     env->facilities[1] = 0;
 
+    /* ??? Current distros are targeting Z9-109 as the minimum.  TCG
+       supports most of the Z9-109 facilities but not all.  Sadly, the
+       kernel checks for facilities it doesn't actually need, minor stuff
+       like hex floating point and translation.  For now, include all
+       that the kernel requires we support.  */
+#ifndef CONFIG_USER_ONLY
+    env->facilities[0] |= FAC0_Z9_109;
+    env->machine_type = 0x20940000;
+#endif
+
     if (tcg_enabled() && !inited) {
         inited = true;
         s390x_translate_init();
