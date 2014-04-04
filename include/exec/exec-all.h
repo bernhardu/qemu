@@ -264,8 +264,9 @@ void tb_phys_invalidate(TranslationBlock *tb, tb_page_addr_t page_addr);
 #if defined(CONFIG_TCG_INTERPRETER)
 static inline void tb_set_jmp_target1(uintptr_t jmp_addr, uintptr_t addr)
 {
-    /* patch the branch destination */
-    atomic_set((int32_t *)jmp_addr, addr - (jmp_addr + 4));
+    intptr_t disp = (intptr_t)(addr - jmp_addr - 4) / 4;
+    assert(disp == (int32_t)disp);
+    atomic_set((int32_t *)jmp_addr, disp);
     /* no need to flush icache explicitly */
 }
 #elif defined(_ARCH_PPC)
