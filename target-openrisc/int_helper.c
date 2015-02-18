@@ -26,19 +26,20 @@
 
 target_ulong HELPER(ff1)(target_ulong x)
 {
-/*#ifdef TARGET_OPENRISC64
-    return x ? ctz64(x) + 1 : 0;
-#else*/
-    return x ? ctz32(x) + 1 : 0;
-/*#endif*/
+    if (x == 0) {
+        return 0;
+    } else if (TARGET_LONG_BITS == 64) {
+        return ctz64(x) + 1;
+    } else {
+        return ctz32(x) + 1;
+    }
 }
 
 target_ulong HELPER(fl1)(target_ulong x)
 {
-/* not used yet, open it when we need or64.  */
-/*#ifdef TARGET_OPENRISC64
-    return 64 - clz64(x);
-#else*/
-    return 32 - clz32(x);
-/*#endif*/
+    if (TARGET_LONG_BITS == 64) {
+        return 64 - clz64(x);
+    } else {
+        return 32 - clz32(x);
+    }
 }
