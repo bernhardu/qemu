@@ -47,7 +47,7 @@ void openrisc_cpu_do_interrupt(CPUState *cs)
        we need flush TLB when we enter&exit EXCP.  */
     tlb_flush(cs, 1);
 
-    env->esr = env->sr;
+    env->esr = cpu_get_sr(env);
     env->sr &= ~SR_DME;
     env->sr &= ~SR_IME;
     env->sr |= SR_SM;
