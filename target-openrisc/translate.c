@@ -749,32 +749,24 @@ static void dec_misc(DisasContext *dc, uint32_t insn)
 
     case 0x2d:    /* l.mfspr */
         LOG_DIS("l.mfspr r%d, r%d, %d\n", rd, ra, K16);
-#if defined(CONFIG_USER_ONLY)
-        return;
-#else
-        if (dc->mem_idx == MMU_USER_IDX) {
-            gen_illegal_exception(dc);
-            return;
+        {
+            TCGv_i32 tmp = tcg_temp_new_i32();
+            tcg_gen_trunc_tl_i32(tmp, cpu_R[ra]);
+            tcg_gen_ori_i32(tmp, tmp, K16);
+            gen_helper_mfspr(cpu_R[rd], cpu_env, tmp);
+            tcg_temp_free_i32(tmp);
         }
-        t0 = tcg_const_i32(K16);
-        gen_helper_mfspr(cpu_R[rd], cpu_env, cpu_R[rd], cpu_R[ra], t0);
-        tcg_temp_free(t0);
-#endif
         break;
 
     case 0x30:    /* l.mtspr */
         LOG_DIS("l.mtspr r%d, r%d, %d\n", ra, rb, K5_11);
-#if defined(CONFIG_USER_ONLY)
-        return;
-#else
-        if (dc->mem_idx == MMU_USER_IDX) {
-            gen_illegal_exception(dc);
-            return;
+        {
+            TCGv_i32 tmp = tcg_temp_new_i32();
+            tcg_gen_trunc_tl_i32(tmp, cpu_R[ra]);
+            tcg_gen_ori_i32(tmp, tmp, K5_11);
+            gen_helper_mtspr(cpu_env, tmp, cpu_R[rb]);
+            tcg_temp_free_i32(tmp);
         }
-        t0 = tcg_const_tl(K5_11);
-        gen_helper_mtspr(cpu_env, cpu_R[ra], cpu_R[rb], t0);
-        tcg_temp_free(t0);
-#endif
         break;
 
     case 0x34:    /* l.sd */

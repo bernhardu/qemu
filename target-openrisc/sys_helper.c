@@ -25,12 +25,11 @@
 
 #define TO_SPR(group, number) (((group) << 11) + (number))
 
-void HELPER(mtspr)(CPUOpenRISCState *env,
-                   target_ulong ra, target_ulong rb, target_ulong offset)
+void HELPER(mtspr)(CPUOpenRISCState *env, uint32_t spr, target_ulong rb)
 {
 #ifndef CONFIG_USER_ONLY
-    int spr = (ra | offset);
     int idx;
+#endif
 
     OpenRISCCPU *cpu = openrisc_env_get_cpu(env);
     CPUState *cs = CPU(cpu);
@@ -50,6 +49,7 @@ void HELPER(mtspr)(CPUOpenRISCState *env,
             tlb_flush(cs, 1);
         }
         cpu_set_sr(env, rb);
+#ifndef CONFIG_USER_ONLY
         if (env->sr & SR_DME) {
             env->tlb->cpu_openrisc_map_address_data =
                 &cpu_openrisc_get_phys_data;
@@ -65,6 +65,7 @@ void HELPER(mtspr)(CPUOpenRISCState *env,
             env->tlb->cpu_openrisc_map_address_code =
                 &cpu_openrisc_get_phys_nommu;
         }
+#endif
         break;
 
     case TO_SPR(0, 18): /* PPC */
@@ -82,6 +83,15 @@ void HELPER(mtspr)(CPUOpenRISCState *env,
     case TO_SPR(0, 64): /* ESR */
         env->esr = rb;
         break;
+
+    case TO_SPR(5, 1):  /* MACLO */
+        env->mac = deposit64(env->mac, 0, 32, rb);
+        break;
+    case TO_SPR(5, 2):  /* MACHI */
+        env->mac = deposit64(env->mac, 32, 32, rb);
+        break;
+
+#ifndef CONFIG_USER_ONLY
     case TO_SPR(1, 512) ... TO_SPR(1, 512+DTLB_SIZE-1): /* DTLBW0MR 0-127 */
         idx = spr - TO_SPR(1, 512);
         if (!(rb & 1)) {
@@ -89,7 +99,6 @@ void HELPER(mtspr)(CPUOpenRISCState *env,
         }
         env->tlb->dtlb[0][idx].mr = rb;
         break;
-
     case TO_SPR(1, 640) ... TO_SPR(1, 640+DTLB_SIZE-1): /* DTLBW0TR 0-127 */
         idx = spr - TO_SPR(1, 640);
         env->tlb->dtlb[0][idx].tr = rb;
@@ -108,7 +117,6 @@ void HELPER(mtspr)(CPUOpenRISCState *env,
         }
         env->tlb->itlb[0][idx].mr = rb;
         break;
-
     case TO_SPR(2, 640) ... TO_SPR(2, 640+ITLB_SIZE-1): /* ITLBW0TR 0-127 */
         idx = spr - TO_SPR(2, 640);
         env->tlb->itlb[0][idx].tr = rb;
@@ -120,12 +128,7 @@ void HELPER(mtspr)(CPUOpenRISCState *env,
     case TO_SPR(2, 1280) ... TO_SPR(2, 1407): /* ITLBW3MR 0-127 */
     case TO_SPR(2, 1408) ... TO_SPR(2, 1535): /* ITLBW3TR 0-127 */
         break;
-    case TO_SPR(5, 1):  /* MACLO */
-        env->mac = deposit64(env->mac, 0, 32, rb);
-        break;
-    case TO_SPR(5, 2):  /* MACHI */
-        env->mac = deposit64(env->mac, 32, 32, rb);
-        break;
+
     case TO_SPR(9, 0):  /* PICMR */
         env->picmr |= rb;
         break;
@@ -169,21 +172,19 @@ void HELPER(mtspr)(CPUOpenRISCState *env,
         }
         cpu_openrisc_timer_update(cpu);
         break;
-    default:
+#endif
 
+    default:
         break;
     }
-#endif
 }
 
-target_ulong HELPER(mfspr)(CPUOpenRISCState *env,
-                           target_ulong rd, target_ulong ra, uint32_t offset)
+target_ulong HELPER(mfspr)(CPUOpenRISCState *env, uint32_t spr)
 {
 #ifndef CONFIG_USER_ONLY
-    int spr = (ra | offset);
-    int idx;
-
     OpenRISCCPU *cpu = openrisc_env_get_cpu(env);
+    int idx;
+#endif
 
     switch (spr) {
     case TO_SPR(0, 0): /* VR */
@@ -219,6 +220,14 @@ target_ulong HELPER(mfspr)(CPUOpenRISCState *env,
     case TO_SPR(0, 64): /* ESR */
         return env->esr;
 
+    case TO_SPR(5, 1):  /* MACLO */
+        return (uint32_t)env->mac;
+        break;
+    case TO_SPR(5, 2):  /* MACHI */
+        return env->mac >> 32;
+        break;
+
+#ifndef CONFIG_USER_ONLY
     case TO_SPR(1, 512) ... TO_SPR(1, 512+DTLB_SIZE-1): /* DTLBW0MR 0-127 */
         idx = spr - TO_SPR(1, 512);
         return env->tlb->dtlb[0][idx].mr;
@@ -251,13 +260,6 @@ target_ulong HELPER(mfspr)(CPUOpenRISCState *env,
     case TO_SPR(2, 1408) ... TO_SPR(2, 1535): /* ITLBW3TR 0-127 */
         break;
 
-    case TO_SPR(5, 1):  /* MACLO */
-        return (uint32_t)env->mac;
-        break;
-    case TO_SPR(5, 2):  /* MACHI */
-        return env->mac >> 32;
-        break;
-
     case TO_SPR(9, 0):  /* PICMR */
         return env->picmr;
 
@@ -270,31 +272,10 @@ target_ulong HELPER(mfspr)(CPUOpenRISCState *env,
     case TO_SPR(10, 1): /* TTCR */
         cpu_openrisc_count_update(cpu);
         return env->ttcr;
+#endif
 
     default:
         break;
     }
-#endif
-
-/*If we later need to add tracepoints (or debug printfs) for the return
-value, it may be useful to structure the code like this:
-
-target_ulong ret = 0;
-
-switch() {
-case x:
- ret = y;
- break;
-case z:
- ret = 42;
- break;
-...
-}
-
-later something like trace_spr_read(ret);
-
-return ret;*/
-
-    /* for rd is passed in, if rd unchanged, just keep it back.  */
-    return rd;
+    return 0;
 }
