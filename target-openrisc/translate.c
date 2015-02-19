@@ -34,14 +34,9 @@
 #include "trace-tcg.h"
 #include "exec/log.h"
 
-
-#define OPENRISC_DISAS
-
-#ifdef OPENRISC_DISAS
-#  define LOG_DIS(...) qemu_log_mask(CPU_LOG_TB_IN_ASM, ## __VA_ARGS__)
-#else
-#  define LOG_DIS(...) do { } while (0)
-#endif
+/* Set to 0 to completely disable.  */
+#define OPENRISC_DISAS  CPU_LOG_TB_IN_ASM
+#define LOG_DIS(...) qemu_log_mask(OPENRISC_DISAS, ## __VA_ARGS__)
 
 typedef struct DisasContext {
     TranslationBlock *tb;
@@ -715,9 +710,7 @@ static void dec_misc(DisasContext *dc, uint32_t insn)
 {
     uint32_t op0, op1;
     uint32_t ra, rb, rd;
-#ifdef OPENRISC_DISAS
     uint32_t L6, K5;
-#endif
     uint32_t I16, I5, I11, N26, tmp;
     TCGMemOp mop;
 
@@ -726,10 +719,8 @@ static void dec_misc(DisasContext *dc, uint32_t insn)
     ra = extract32(insn, 16, 5);
     rb = extract32(insn, 11, 5);
     rd = extract32(insn, 21, 5);
-#ifdef OPENRISC_DISAS
     L6 = extract32(insn, 5, 6);
     K5 = extract32(insn, 0, 5);
-#endif
     I16 = extract32(insn, 0, 16);
     I5 = extract32(insn, 21, 5);
     I11 = extract32(insn, 0, 11);
@@ -1326,13 +1317,10 @@ static void dec_compi(DisasContext *dc, uint32_t insn)
 static void dec_sys(DisasContext *dc, uint32_t insn)
 {
     uint32_t op0;
-#ifdef OPENRISC_DISAS
     uint32_t K16;
-#endif
+
     op0 = extract32(insn, 16, 10);
-#ifdef OPENRISC_DISAS
     K16 = extract32(insn, 0, 16);
-#endif
 
     switch (op0) {
     case 0x000:    /* l.sys */
