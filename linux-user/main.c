@@ -2720,6 +2720,48 @@ error:
 #endif
 
 #ifdef TARGET_OPENRISC
+static void do_store_exclusive(CPUOpenRISCState *env)
+{
+    target_ulong addr, val, tmp;
+    target_siginfo_t info;
+    int ret = 0;
+
+    addr = env->lock_addr;
+    tmp = env->lock_st_addr;
+    env->lock_addr = -1;
+    env->lock_st_addr = 0;
+
+    start_exclusive();
+    mmap_lock();
+
+    if (addr == tmp) {
+        if (get_user_u32(val, addr)) {
+            goto do_sigsegv;
+        }
+        if (val == env->lock_value) {
+            if (put_user_u32(env->lock_st_value, addr)) {
+                goto do_sigsegv;
+            }
+            ret = 1;
+        }
+    }
+    env->sr_f = ret;
+    env->pc += 4;
+
+    mmap_unlock();
+    end_exclusive();
+    return;
+
+ do_sigsegv:
+    mmap_unlock();
+    end_exclusive();
+
+    info.si_signo = TARGET_SIGSEGV;
+    info.si_errno = 0;
+    info.si_code = TARGET_SEGV_MAPERR;
+    info._sifields._sigfault._addr = addr;
+    queue_signal(env, TARGET_SIGSEGV, &info);
+}
 
 void cpu_loop(CPUOpenRISCState *env)
 {
@@ -2794,6 +2836,9 @@ void cpu_loop(CPUOpenRISCState *env)
             break;
         case EXCP_NR:
             qemu_log_mask(CPU_LOG_INT, "\nNR\n");
+            break;
+	case EXCP_SWA:
+            do_store_exclusive(env);
             break;
         default:
             EXCP_DUMP(env, "\nqemu: unhandled CPU exception %#x - aborting\n",

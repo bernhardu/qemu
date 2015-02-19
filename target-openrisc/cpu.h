@@ -169,6 +169,8 @@ enum {
     EXCP_FPE      = 0xd,
     EXCP_TRAP     = 0xe,
     EXCP_NR,
+    /* For usermode emulation.  */
+    EXCP_SWA,
 };
 
 /* Supervisor register */
@@ -294,6 +296,13 @@ typedef struct CPUOpenRISCState {
     uint32_t esr;             /* Exception supervisor register */
     uint32_t fpcsr;           /* Float register */
     float_status fp_status;
+
+    target_ulong lock_addr;
+    target_ulong lock_value;
+#ifdef CONFIG_USER_ONLY
+    target_ulong lock_st_addr;
+    target_ulong lock_st_value;
+#endif
 
     uint32_t flags;           /* cpu_flags, we only use it for exception
                                  in solt so far.  */

@@ -58,6 +58,8 @@ static TCGv cpu_ppc;
 static TCGv cpu_sr_f;           /* bf/bnf, F flag taken */
 static TCGv cpu_sr_cy;          /* carry (unsigned overflow) */
 static TCGv cpu_sr_ov;          /* signed overflow */
+static TCGv cpu_lock_addr;
+static TCGv cpu_lock_value;
 static TCGv_i32 fpcsr;
 static TCGv_i64 cpu_mac;        /* MACHI:MACLO */
 static TCGv_i32 env_flags;
@@ -93,6 +95,12 @@ void openrisc_translate_init(void)
                                  offsetof(CPUOpenRISCState, sr_cy), "sr_cy");
     cpu_sr_ov = tcg_global_mem_new(cpu_env,
                                  offsetof(CPUOpenRISCState, sr_ov), "sr_ov");
+    cpu_lock_addr = tcg_global_mem_new(cpu_env,
+                                       offsetof(CPUOpenRISCState, lock_addr),
+                                       "lock_addr");
+    cpu_lock_value = tcg_global_mem_new(cpu_env,
+                                        offsetof(CPUOpenRISCState, lock_value),
+                                        "lock_value");
     fpcsr = tcg_global_mem_new_i32(cpu_env,
                                    offsetof(CPUOpenRISCState, fpcsr),
                                    "fpcsr");
@@ -478,6 +486,58 @@ static void gen_msbu(DisasContext *dc, TCGv srca, TCGv srcb)
     gen_ove_cy(dc);
 }
 
+static void gen_lwa(DisasContext *dc, TCGv rd, TCGv ra, int32_t ofs)
+{
+    TCGv ea = tcg_temp_new();
+
+    tcg_gen_addi_tl(ea, ra, ofs);
+    tcg_gen_qemu_ld_tl(rd, ea, dc->mem_idx, MO_TEUL);
+    tcg_gen_mov_tl(cpu_lock_addr, ea);
+    tcg_gen_mov_tl(cpu_lock_value, rd);
+    tcg_temp_free(ea);
+}
+
+static void gen_swa(DisasContext *dc, TCGv rb, TCGv ra, int32_t ofs)
+{
+#ifdef CONFIG_USER_ONLY
+    TCGv ea = tcg_temp_new();
+    tcg_gen_addi_tl(ea, ra, ofs);
+    tcg_gen_st_tl(ea, cpu_env, offsetof(CPUOpenRISCState, lock_st_addr));
+    tcg_temp_free(ea);
+
+    tcg_gen_st32_tl(rb, cpu_env, offsetof(CPUOpenRISCState, lock_st_value));
+
+    tcg_gen_movi_tl(cpu_pc, dc->pc);
+    gen_exception(dc, EXCP_SWA);
+    dc->is_jmp = DISAS_UPDATE;
+#else
+    TCGv ea, val;
+    TCGLabel *lab_fail, *lab_done;
+
+    ea = tcg_temp_new();
+    tcg_gen_addi_tl(ea, ra, ofs);
+
+    lab_fail = gen_new_label();
+    lab_done = gen_new_label();
+    tcg_gen_brcond_tl(TCG_COND_NE, ea, cpu_lock_addr, lab_fail);
+    tcg_temp_free(ea);
+
+    val = tcg_temp_new();
+    tcg_gen_qemu_ld_tl(val, cpu_lock_addr, dc->mem_idx, MO_TEUL);
+    tcg_gen_brcond_tl(TCG_COND_NE, val, cpu_lock_value, lab_fail);
+
+    tcg_gen_qemu_st_tl(rb, cpu_lock_addr, dc->mem_idx, MO_TEUL);
+    tcg_gen_movi_tl(cpu_sr_f, 1);
+    tcg_gen_br(lab_done);
+
+    gen_set_label(lab_fail);
+    tcg_gen_movi_tl(cpu_sr_f, 0);
+
+    gen_set_label(lab_done);
+    tcg_gen_movi_tl(cpu_lock_addr, -1);
+#endif
+}
+
 static void dec_calc(DisasContext *dc, uint32_t insn)
 {
     uint32_t op0, op1, op2;
@@ -732,6 +792,11 @@ static void dec_misc(DisasContext *dc, uint32_t insn)
         }
         break;
 
+    case 0x1b: /* l.lwa */
+        LOG_DIS("l.lwa r%d, r%d, %d\n", rd, ra, I16);
+        gen_lwa(dc, cpu_R[rd], cpu_R[ra], I16);
+        break;
+
     case 0x1c:    /* l.cust1 */
         LOG_DIS("l.cust1\n");
         break;
@@ -856,6 +921,11 @@ static void dec_misc(DisasContext *dc, uint32_t insn)
             gen_helper_mtspr(cpu_env, tmp, cpu_R[rb]);
             tcg_temp_free_i32(tmp);
         }
+        break;
+
+    case 0x33: /* l.swa */
+        LOG_DIS("l.swa r%d, r%d, %d\n", ra, rb, I5_11);
+        gen_swa(dc, cpu_R[rb], cpu_R[ra], I5_11);
         break;
 
     case 0x34:    /* l.sd */
