@@ -60,7 +60,6 @@ static TCGv cpu_sr_cy;          /* carry (unsigned overflow) */
 static TCGv cpu_sr_ov;          /* signed overflow */
 static TCGv_i32 fpcsr;
 static TCGv_i64 cpu_mac;        /* MACHI:MACLO */
-static TCGv fpmaddhi, fpmaddlo;
 static TCGv_i32 env_flags;
 #include "exec/gen-icount.h"
 
@@ -100,12 +99,6 @@ void openrisc_translate_init(void)
     cpu_mac = tcg_global_mem_new_i64(cpu_env,
                                      offsetof(CPUOpenRISCState, mac),
                                      "mac");
-    fpmaddhi = tcg_global_mem_new(cpu_env,
-                                  offsetof(CPUOpenRISCState, fpmaddhi),
-                                  "fpmaddhi");
-    fpmaddlo = tcg_global_mem_new(cpu_env,
-                                  offsetof(CPUOpenRISCState, fpmaddlo),
-                                  "fpmaddlo");
     for (i = 0; i < 32; i++) {
         cpu_R[i] = tcg_global_mem_new(cpu_env,
                                       offsetof(CPUOpenRISCState, gpr[i]),
@@ -1224,7 +1217,8 @@ static void dec_float(DisasContext *dc, uint32_t insn)
 
     case 0x07:    /* lf.madd.s */
         LOG_DIS("lf.madd.s r%d, r%d, r%d\n", rd, ra, rb);
-        gen_helper_float_muladd_s(cpu_R[rd], cpu_env, cpu_R[ra], cpu_R[rb]);
+        gen_helper_float_madd_s(cpu_R[rd], cpu_env, cpu_R[rd],
+                                cpu_R[ra], cpu_R[rb]);
         break;
 
     case 0x08:    /* lf.sfeq.s */
@@ -1309,7 +1303,8 @@ static void dec_float(DisasContext *dc, uint32_t insn)
     case 0x17:     lf.madd.d
         LOG_DIS("lf.madd.d r%d, r%d, r%d\n", rd, ra, rb);
         check_of64s(dc);
-        gen_helper_float_muladd_d(cpu_R[rd], cpu_env, cpu_R[ra], cpu_R[rb]);
+        gen_helper_float_madd_d(cpu_R[rd], cpu_env, cpu_R[rd],
+                                cpu_R[ra], cpu_R[rb]);
         break;
 
     case 0x18:     lf.sfeq.d
