@@ -319,7 +319,6 @@ void HELPER(set_sr)(CPUM68KState *env, uint32_t val)
     m68k_switch_sp(env);
 }
 
-
 /* MAC unit.  */
 /* FIXME: The MAC unit implementation is a bit of a mess.  Some helpers
    take values,  others take register numbers and manipulate the contents
