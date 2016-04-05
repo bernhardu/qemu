@@ -36,7 +36,8 @@
 
 /* Set to 0 to completely disable.  */
 #define OPENRISC_DISAS  CPU_LOG_TB_IN_ASM
-#define LOG_DIS(...) qemu_log_mask(OPENRISC_DISAS, ## __VA_ARGS__)
+#define LOG_DIS(str, ...) \
+    qemu_log_mask(OPENRISC_DISAS, "%08x: " str, dc->pc, ## __VA_ARGS__)
 
 typedef struct DisasContext {
     TranslationBlock *tb;
@@ -1511,9 +1512,9 @@ void gen_intermediate_code(CPUOpenRISCState *env, struct TranslationBlock *tb)
     dc->synced_flags = dc->tb_flags = tb->flags;
     dc->delayed_branch = (dc->tb_flags & D_FLAG) != 0;
     dc->singlestep_enabled = cs->singlestep_enabled;
+
     if (qemu_loglevel_mask(CPU_LOG_TB_IN_ASM)) {
-        qemu_log("-----------------------------------------\n");
-        log_cpu_state(CPU(cpu), 0);
+        qemu_log("IN: %s\n", lookup_symbol(pc_start));
     }
 
     next_page_start = (pc_start & TARGET_PAGE_MASK) + TARGET_PAGE_SIZE;
