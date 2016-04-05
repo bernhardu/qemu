@@ -27,12 +27,11 @@
 
 void HELPER(mtspr)(CPUOpenRISCState *env, uint32_t spr, target_ulong rb)
 {
+    OpenRISCCPU *cpu = openrisc_env_get_cpu(env);
+    CPUState *cs = CPU(cpu);
 #ifndef CONFIG_USER_ONLY
     int idx;
 #endif
-
-    OpenRISCCPU *cpu = openrisc_env_get_cpu(env);
-    CPUState *cs = CPU(cpu);
 
     switch (spr) {
     case TO_SPR(0, 0): /* VR */
@@ -40,7 +39,14 @@ void HELPER(mtspr)(CPUOpenRISCState *env, uint32_t spr, target_ulong rb)
         break;
 
     case TO_SPR(0, 16): /* NPC */
-        env->npc = rb;
+        cpu_restore_state(cs, GETPC());
+        /* ??? Mirror or1ksim in not trashing delayed branch state
+           when "jumping" to the current instruction.  */
+        if (env->pc != rb) {
+            env->pc = rb;
+            env->flags = 0;
+            cpu_loop_exit(cs);
+        }
         break;
 
     case TO_SPR(0, 17): /* SR */
@@ -181,8 +187,9 @@ void HELPER(mtspr)(CPUOpenRISCState *env, uint32_t spr, target_ulong rb)
 
 target_ulong HELPER(mfspr)(CPUOpenRISCState *env, uint32_t spr)
 {
-#ifndef CONFIG_USER_ONLY
     OpenRISCCPU *cpu = openrisc_env_get_cpu(env);
+    CPUState *cs = CPU(cpu);
+#ifndef CONFIG_USER_ONLY
     int idx;
 #endif
 
@@ -202,13 +209,15 @@ target_ulong HELPER(mfspr)(CPUOpenRISCState *env, uint32_t spr)
     case TO_SPR(0, 4): /* IMMUCFGR */
         return env->immucfgr;
 
-    case TO_SPR(0, 16): /* NPC */
-        return env->npc;
+    case TO_SPR(0, 16): /* NPC (equals PC) */
+        cpu_restore_state(cs, GETPC());
+        return env->pc;
 
     case TO_SPR(0, 17): /* SR */
         return cpu_get_sr(env);
 
     case TO_SPR(0, 18): /* PPC */
+        cpu_restore_state(cs, GETPC());
         return env->ppc;
 
     case TO_SPR(0, 32): /* EPCR */

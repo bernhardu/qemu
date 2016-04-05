@@ -26,8 +26,8 @@
 
 static const VMStateDescription vmstate_env = {
     .name = "env",
-    .version_id = 1,
-    .minimum_version_id = 1,
+    .version_id = 2,
+    .minimum_version_id = 2,
     .fields = (VMStateField[]) {
         VMSTATE_UINT32_ARRAY(gpr, CPUOpenRISCState, 32),
         VMSTATE_UINT32(sr, CPUOpenRISCState),
@@ -36,7 +36,6 @@ static const VMStateDescription vmstate_env = {
         VMSTATE_UINT32(esr, CPUOpenRISCState),
         VMSTATE_UINT32(fpcsr, CPUOpenRISCState),
         VMSTATE_UINT32(pc, CPUOpenRISCState),
-        VMSTATE_UINT32(npc, CPUOpenRISCState),
         VMSTATE_UINT32(ppc, CPUOpenRISCState),
         VMSTATE_END_OF_LIST()
     }
