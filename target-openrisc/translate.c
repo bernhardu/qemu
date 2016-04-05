@@ -709,7 +709,7 @@ static void dec_misc(DisasContext *dc, uint32_t insn)
     uint32_t ra, rb, rd;
     uint32_t L6, K5;
     uint32_t K16, K5_11;
-    int32_t I16, I5_11, N26;
+    int32_t I16, I5_11, N21, N26;
     TCGMemOp mop;
     TCGv t0;
 
@@ -722,6 +722,7 @@ static void dec_misc(DisasContext *dc, uint32_t insn)
     K5 = extract32(insn, 0, 5);
     K16 = extract32(insn, 0, 16);
     I16 = (int16_t)K16;
+    N21 = sextract32(insn, 0, 21);
     N26 = sextract32(insn, 0, 26);
     K5_11 = (extract32(insn, 21, 5) << 11) | extract32(insn, 0, 11);
     I5_11 = (int16_t)K5_11;
@@ -735,6 +736,11 @@ static void dec_misc(DisasContext *dc, uint32_t insn)
     case 0x01:    /* l.jal */
         LOG_DIS("l.jal %d\n", N26);
         gen_jump(dc, N26, 0, op0);
+        break;
+
+    case 0x02:    /* l.adrp */
+        LOG_DIS("l.adrp r%d,%d\n", rd, N21);
+        tcg_gen_movi_tl(cpu_R[rd], ((dc->pc >> 13) + N21) << 13);
         break;
 
     case 0x03:    /* l.bnf */
