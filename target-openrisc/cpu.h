@@ -83,9 +83,6 @@ enum {
 /* Version Register */
 #define SPR_VR 0xFFFF003F
 
-/* Internal flags, delay slot flag */
-#define D_FLAG    1
-
 /* Interrupt */
 #define NR_IRQS  32
 
@@ -304,8 +301,7 @@ typedef struct CPUOpenRISCState {
     target_ulong lock_st_value;
 #endif
 
-    uint32_t flags;           /* cpu_flags, we only use it for exception
-                                 in solt so far.  */
+    uint32_t dflag;           /* In delay slot (boolean) */
 
     CPU_COMMON
 
@@ -397,14 +393,16 @@ int cpu_openrisc_get_phys_data(OpenRISCCPU *cpu,
 
 #include "exec/cpu-all.h"
 
+#define TB_FLAGS_DFLAG 1
+#define TB_FLAGS_OVE   SR_OVE
+
 static inline void cpu_get_tb_cpu_state(CPUOpenRISCState *env,
                                         target_ulong *pc,
                                         target_ulong *cs_base, uint32_t *flags)
 {
     *pc = env->pc;
     *cs_base = 0;
-    /* D_FLAG -- branch instruction exception, OVE overflow trap enable.  */
-    *flags = (env->flags & D_FLAG) | (env->sr & SR_OVE);
+    *flags = env->dflag | (env->sr & SR_OVE);
 }
 
 static inline int cpu_mmu_index(CPUOpenRISCState *env, bool ifetch)
