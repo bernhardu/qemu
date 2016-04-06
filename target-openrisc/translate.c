@@ -39,14 +39,22 @@
 #define LOG_DIS(str, ...) \
     qemu_log_mask(OPENRISC_DISAS, "%08x: " str, dc->pc, ## __VA_ARGS__)
 
+typedef enum {
+    JMP_NONE,
+    JMP_EXCP,
+    JMP_VAR,
+    JMP_DIRECT,
+} JmpStatus;
+
 typedef struct DisasContext {
     TranslationBlock *tb;
     target_ulong pc;
-    uint32_t is_jmp;
     uint32_t mem_idx;
     uint32_t tb_flags;
-    uint32_t delayed_branch;
+    bool dflag;
     bool singlestep_enabled;
+    JmpStatus jmp_type;
+    target_ulong jmp_dest[2];
 } DisasContext;
 
 static TCGv_env cpu_env;
@@ -114,37 +122,33 @@ void openrisc_translate_init(void)
     cpu_R0 = cpu_R[0];
 }
 
-static void gen_exception(DisasContext *dc, unsigned int excp)
+static void gen_exception_1(unsigned int excp)
 {
     TCGv_i32 tmp = tcg_const_i32(excp);
     gen_helper_exception(cpu_env, tmp);
     tcg_temp_free_i32(tmp);
 }
 
-static void gen_illegal_exception(DisasContext *dc)
+static JmpStatus gen_exception(DisasContext *dc, unsigned int excp)
 {
     tcg_gen_movi_tl(cpu_pc, dc->pc);
-    gen_exception(dc, EXCP_ILLEGAL);
-    dc->is_jmp = DISAS_UPDATE;
+    gen_exception_1(excp);
+    return JMP_EXCP;
 }
 
-#define check_ob64s(dc)                 \
-    do {                                \
-        gen_illegal_exception(dc);      \
-        return;                         \
-    } while (0)
+static JmpStatus gen_illegal_exception(DisasContext *dc)
+{
+    return gen_exception(dc, EXCP_ILLEGAL);
+}
 
-#define check_of64s(dc)                 \
-    do {                                \
-        gen_illegal_exception(dc);      \
-        return;                         \
-    } while (0)
+#define check_ob64s(dc) \
+    do { return gen_illegal_exception(dc); } while (0)
 
-#define check_ov64s(dc)                 \
-    do {                                \
-        gen_illegal_exception(dc);      \
-        return;                         \
-    } while (0)
+#define check_of64s(dc) \
+    do { return gen_illegal_exception(dc); } while (0)
+
+#define check_ov64s(dc) \
+    do { return gen_illegal_exception(dc); } while (0)
 
 /* We're about to write to REG.  On the off-chance that the user is
    writing to R0, re-instate the architectural register.  */
@@ -171,34 +175,33 @@ static inline bool use_goto_tb(DisasContext *dc, target_ulong dest)
 static void gen_goto_tb(DisasContext *dc, int n, target_ulong dest)
 {
     if (use_goto_tb(dc, dest)) {
-        tcg_gen_movi_tl(cpu_pc, dest);
         tcg_gen_goto_tb(n);
+        tcg_gen_movi_tl(cpu_pc, dest);
         tcg_gen_exit_tb((uintptr_t)dc->tb + n);
     } else {
         tcg_gen_movi_tl(cpu_pc, dest);
-        if (dc->singlestep_enabled) {
-            gen_exception(dc, EXCP_DEBUG);
-        }
         tcg_gen_exit_tb(0);
     }
 }
 
-static void gen_jump(DisasContext *dc, int32_t n26, uint32_t reg, uint32_t op0)
+static JmpStatus gen_jump(DisasContext *dc, int32_t n26,
+                          uint32_t reg, uint32_t op0)
 {
     target_ulong tmp_pc = dc->pc + n26 * 4;
 
     switch (op0) {
-    case 0x00:     /* l.j */
-        tcg_gen_movi_tl(jmp_pc, tmp_pc);
-        break;
     case 0x01:     /* l.jal */
         tcg_gen_movi_tl(cpu_R[9], dc->pc + 8);
         /* Optimize jal being used to load the PC for PIC.  */
         if (tmp_pc == dc->pc + 8) {
-            return;
+            return JMP_NONE;
         }
-        tcg_gen_movi_tl(jmp_pc, tmp_pc);
+        /* fallthru */
+    case 0x00:     /* l.j */
+        dc->jmp_dest[0] = tmp_pc;
+        dc->jmp_type = JMP_DIRECT;
         break;
+
     case 0x03:     /* l.bnf */
     case 0x04:     /* l.bf  */
         {
@@ -212,21 +215,27 @@ static void gen_jump(DisasContext *dc, int32_t n26, uint32_t reg, uint32_t op0)
             tcg_temp_free(t_next);
             tcg_temp_free(t_true);
             tcg_temp_free(t_zero);
+
+            dc->jmp_type = JMP_VAR;
         }
         break;
+
     case 0x11:     /* l.jr */
         tcg_gen_mov_tl(jmp_pc, cpu_R[reg]);
+        dc->jmp_type = JMP_VAR;
         break;
     case 0x12:     /* l.jalr */
-        tcg_gen_movi_tl(cpu_R[9], (dc->pc + 8));
         tcg_gen_mov_tl(jmp_pc, cpu_R[reg]);
+        tcg_gen_movi_tl(cpu_R[9], (dc->pc + 8));
+        dc->jmp_type = JMP_VAR;
         break;
+
     default:
-        gen_illegal_exception(dc);
-        break;
+        return gen_illegal_exception(dc);
     }
 
-    dc->delayed_branch = 2;
+    dc->dflag = true;
+    return JMP_NONE;
 }
 
 static void gen_ove_cy(DisasContext *dc)
@@ -509,9 +518,7 @@ static void gen_swa(DisasContext *dc, TCGv rb, TCGv ra, int32_t ofs)
 
     tcg_gen_st32_tl(rb, cpu_env, offsetof(CPUOpenRISCState, lock_st_value));
 
-    tcg_gen_movi_tl(cpu_pc, dc->pc);
     gen_exception(dc, EXCP_SWA);
-    dc->is_jmp = DISAS_UPDATE;
 #else
     TCGv ea, val;
     TCGLabel *lab_fail, *lab_done;
@@ -540,7 +547,7 @@ static void gen_swa(DisasContext *dc, TCGv rb, TCGv ra, int32_t ofs)
 #endif
 }
 
-static void dec_calc(DisasContext *dc, uint32_t insn)
+static JmpStatus dec_calc(DisasContext *dc, uint32_t insn)
 {
     uint32_t op0, op1, op2;
     uint32_t ra, rb, rd;
@@ -557,51 +564,53 @@ static void dec_calc(DisasContext *dc, uint32_t insn)
         case 0x0: /* l.add */
             LOG_DIS("l.add r%d, r%d, r%d\n", rd, ra, rb);
             gen_add(dc, cpu_R[rd], cpu_R[ra], cpu_R[rb]);
-            return;
+            break;
 
         case 0x1: /* l.addc */
             LOG_DIS("l.addc r%d, r%d, r%d\n", rd, ra, rb);
             gen_addc(dc, cpu_R[rd], cpu_R[ra], cpu_R[rb]);
-            return;
+            break;
 
         case 0x2: /* l.sub */
             LOG_DIS("l.sub r%d, r%d, r%d\n", rd, ra, rb);
             gen_sub(dc, cpu_R[rd], cpu_R[ra], cpu_R[rb]);
-            return;
+            break;
 
         case 0x3: /* l.and */
             LOG_DIS("l.and r%d, r%d, r%d\n", rd, ra, rb);
             tcg_gen_and_tl(cpu_R[rd], cpu_R[ra], cpu_R[rb]);
-            return;
+            break;
 
         case 0x4: /* l.or */
             LOG_DIS("l.or r%d, r%d, r%d\n", rd, ra, rb);
             tcg_gen_or_tl(cpu_R[rd], cpu_R[ra], cpu_R[rb]);
-            return;
+            break;
 
         case 0x5: /* l.xor */
             LOG_DIS("l.xor r%d, r%d, r%d\n", rd, ra, rb);
             tcg_gen_xor_tl(cpu_R[rd], cpu_R[ra], cpu_R[rb]);
-            return;
+            break;
 
         case 0x8:
             switch (op2) {
             case 0: /* l.sll */
                 LOG_DIS("l.sll r%d, r%d, r%d\n", rd, ra, rb);
                 tcg_gen_shl_tl(cpu_R[rd], cpu_R[ra], cpu_R[rb]);
-                return;
+                break;
             case 1: /* l.srl */
                 LOG_DIS("l.srl r%d, r%d, r%d\n", rd, ra, rb);
                 tcg_gen_shr_tl(cpu_R[rd], cpu_R[ra], cpu_R[rb]);
-                return;
+                break;
             case 2: /* l.sra */
                 LOG_DIS("l.sra r%d, r%d, r%d\n", rd, ra, rb);
                 tcg_gen_sar_tl(cpu_R[rd], cpu_R[ra], cpu_R[rb]);
-                return;
+                break;
             case 3: /* l.ror */
                 LOG_DIS("l.ror r%d, r%d, r%d\n", rd, ra, rb);
                 tcg_gen_rotr_tl(cpu_R[rd], cpu_R[ra], cpu_R[rb]);
-                return;
+                break;
+            default:
+                return gen_illegal_exception(dc);
             }
             break;
 
@@ -610,19 +619,21 @@ static void dec_calc(DisasContext *dc, uint32_t insn)
             case 0: /* l.exths */
                 LOG_DIS("l.exths r%d, r%d\n", rd, ra);
                 tcg_gen_ext16s_tl(cpu_R[rd], cpu_R[ra]);
-                return;
+                break;
             case 1: /* l.extbs */
                 LOG_DIS("l.extbs r%d, r%d\n", rd, ra);
                 tcg_gen_ext8s_tl(cpu_R[rd], cpu_R[ra]);
-                return;
+                break;
             case 2: /* l.exthz */
                 LOG_DIS("l.exthz r%d, r%d\n", rd, ra);
                 tcg_gen_ext16u_tl(cpu_R[rd], cpu_R[ra]);
-                return;
+                break;
             case 3: /* l.extbz */
                 LOG_DIS("l.extbz r%d, r%d\n", rd, ra);
                 tcg_gen_ext8u_tl(cpu_R[rd], cpu_R[ra]);
-                return;
+                break;
+            default:
+                return gen_illegal_exception(dc);
             }
             break;
 
@@ -631,11 +642,13 @@ static void dec_calc(DisasContext *dc, uint32_t insn)
             case 0: /* l.extws */
                 LOG_DIS("l.extws r%d, r%d\n", rd, ra);
                 tcg_gen_ext32s_tl(cpu_R[rd], cpu_R[ra]);
-                return;
+                break;
             case 1: /* l.extwz */
                 LOG_DIS("l.extwz r%d, r%d\n", rd, ra);
                 tcg_gen_ext32u_tl(cpu_R[rd], cpu_R[ra]);
-                return;
+                break;
+            default:
+                return gen_illegal_exception(dc);
             }
             break;
 
@@ -647,12 +660,15 @@ static void dec_calc(DisasContext *dc, uint32_t insn)
                                    cpu_R[ra], cpu_R[rb]);
                 tcg_temp_free(zero);
             }
-            return;
+            break;
 
         case 0xf: /* l.ff1 */
             LOG_DIS("l.ff1 r%d, r%d, r%d\n", rd, ra, rb);
             gen_helper_ff1(cpu_R[rd], cpu_R[ra]);
-            return;
+            break;
+
+        default:
+            return gen_illegal_exception(dc);
         }
         break;
 
@@ -661,11 +677,10 @@ static void dec_calc(DisasContext *dc, uint32_t insn)
         case 0xf: /* l.fl1 */
             LOG_DIS("l.fl1 r%d, r%d, r%d\n", rd, ra, rb);
             gen_helper_fl1(cpu_R[rd], cpu_R[ra]);
-            return;
+            break;
+        default:
+            return gen_illegal_exception(dc);
         }
-        break;
-
-    case 2:
         break;
 
     case 3:
@@ -673,7 +688,7 @@ static void dec_calc(DisasContext *dc, uint32_t insn)
         case 0x6: /* l.mul */
             LOG_DIS("l.mul r%d, r%d, r%d\n", rd, ra, rb);
             gen_mul(dc, cpu_R[rd], cpu_R[ra], cpu_R[rb]);
-            return;
+            break;
 
         case 0x7: /* l.muld */
             LOG_DIS("l.muld r%d, r%d\n", ra, rb);
@@ -683,29 +698,35 @@ static void dec_calc(DisasContext *dc, uint32_t insn)
         case 0x9: /* l.div */
             LOG_DIS("l.div r%d, r%d, r%d\n", rd, ra, rb);
             gen_div(dc, cpu_R[rd], cpu_R[ra], cpu_R[rb]);
-            return;
+            break;
 
         case 0xa: /* l.divu */
             LOG_DIS("l.divu r%d, r%d, r%d\n", rd, ra, rb);
             gen_divu(dc, cpu_R[rd], cpu_R[ra], cpu_R[rb]);
-            return;
+            break;
 
         case 0xb: /* l.mulu */
             LOG_DIS("l.mulu r%d, r%d, r%d\n", rd, ra, rb);
             gen_mulu(dc, cpu_R[rd], cpu_R[ra], cpu_R[rb]);
-            return;
+            break;
 
         case 0xc: /* l.muldu */
             LOG_DIS("l.muldu r%d, r%d\n", ra, rb);
             gen_muldu(dc, cpu_R[ra], cpu_R[rb]);
-            return;
+            break;
+
+        default:
+            return gen_illegal_exception(dc);
         }
         break;
+
+    default:
+        return gen_illegal_exception(dc);
     }
-    gen_illegal_exception(dc);
+    return JMP_NONE;
 }
 
-static void dec_misc(DisasContext *dc, uint32_t insn)
+static JmpStatus dec_misc(DisasContext *dc, uint32_t insn)
 {
     uint32_t op0, op1;
     uint32_t ra, rb, rd;
@@ -761,10 +782,8 @@ static void dec_misc(DisasContext *dc, uint32_t insn)
         case 0x01:    /* l.nop */
             LOG_DIS("l.nop %d\n", I16);
             break;
-
         default:
-            gen_illegal_exception(dc);
-            break;
+            return gen_illegal_exception(dc);
         }
         break;
 
@@ -787,19 +806,15 @@ static void dec_misc(DisasContext *dc, uint32_t insn)
 
     case 0x09:    /* l.rfe */
         LOG_DIS("l.rfe\n");
-        {
 #if defined(CONFIG_USER_ONLY)
-            return;
+        return gen_illegal_exception(dc);
 #else
-            if (dc->mem_idx == MMU_USER_IDX) {
-                gen_illegal_exception(dc);
-                return;
-            }
-            gen_helper_rfe(cpu_env);
-            dc->is_jmp = DISAS_UPDATE;
-#endif
+        if (dc->mem_idx == MMU_USER_IDX) {
+            return gen_illegal_exception(dc);
         }
-        break;
+        gen_helper_rfe(cpu_env);
+        return JMP_VAR;
+#endif
 
     case 0x1b: /* l.lwa */
         LOG_DIS("l.lwa r%d, r%d, %d\n", rd, ra, I16);
@@ -971,12 +986,12 @@ static void dec_misc(DisasContext *dc, uint32_t insn)
         break;
 
     default:
-        gen_illegal_exception(dc);
-        break;
+        return gen_illegal_exception(dc);
     }
+    return JMP_NONE;
 }
 
-static void dec_mac(DisasContext *dc, uint32_t insn)
+static JmpStatus dec_mac(DisasContext *dc, uint32_t insn)
 {
     uint32_t op0;
     uint32_t ra, rb;
@@ -1006,12 +1021,12 @@ static void dec_mac(DisasContext *dc, uint32_t insn)
         break;
 
     default:
-        gen_illegal_exception(dc);
-        break;
-   }
+        return gen_illegal_exception(dc);
+    }
+    return JMP_NONE;
 }
 
-static void dec_logic(DisasContext *dc, uint32_t insn)
+static JmpStatus dec_logic(DisasContext *dc, uint32_t insn)
 {
     uint32_t op0;
     uint32_t rd, ra, L6, S6;
@@ -1044,12 +1059,12 @@ static void dec_logic(DisasContext *dc, uint32_t insn)
         break;
 
     default:
-        gen_illegal_exception(dc);
-        break;
+        return gen_illegal_exception(dc);
     }
+    return JMP_NONE;
 }
 
-static void dec_M(DisasContext *dc, uint32_t insn)
+static JmpStatus dec_M(DisasContext *dc, uint32_t insn)
 {
     uint32_t op0;
     uint32_t rd;
@@ -1072,12 +1087,12 @@ static void dec_M(DisasContext *dc, uint32_t insn)
         break;
 
     default:
-        gen_illegal_exception(dc);
-        break;
+        return gen_illegal_exception(dc);
     }
+    return JMP_NONE;
 }
 
-static void dec_comp(DisasContext *dc, uint32_t insn)
+static JmpStatus dec_comp(DisasContext *dc, uint32_t insn)
 {
     uint32_t op0;
     uint32_t ra, rb;
@@ -1142,12 +1157,12 @@ static void dec_comp(DisasContext *dc, uint32_t insn)
         break;
 
     default:
-        gen_illegal_exception(dc);
-        break;
+        return gen_illegal_exception(dc);
     }
+    return JMP_NONE;
 }
 
-static void dec_compi(DisasContext *dc, uint32_t insn)
+static JmpStatus dec_compi(DisasContext *dc, uint32_t insn)
 {
     uint32_t op0;
     uint32_t ra;
@@ -1209,12 +1224,12 @@ static void dec_compi(DisasContext *dc, uint32_t insn)
         break;
 
     default:
-        gen_illegal_exception(dc);
-        break;
+        return gen_illegal_exception(dc);
     }
+    return JMP_NONE;
 }
 
-static void dec_sys(DisasContext *dc, uint32_t insn)
+static JmpStatus dec_sys(DisasContext *dc, uint32_t insn)
 {
     uint32_t op0;
     uint32_t K16;
@@ -1225,14 +1240,11 @@ static void dec_sys(DisasContext *dc, uint32_t insn)
     switch (op0) {
     case 0x000:    /* l.sys */
         LOG_DIS("l.sys %d\n", K16);
-        tcg_gen_movi_tl(cpu_pc, dc->pc);
         gen_exception(dc, EXCP_SYSCALL);
-        dc->is_jmp = DISAS_UPDATE;
         break;
 
     case 0x100:    /* l.trap */
         LOG_DIS("l.trap %d\n", K16);
-        tcg_gen_movi_tl(cpu_pc, dc->pc);
         gen_exception(dc, EXCP_TRAP);
         break;
 
@@ -1249,12 +1261,12 @@ static void dec_sys(DisasContext *dc, uint32_t insn)
         break;
 
     default:
-        gen_illegal_exception(dc);
-        break;
+        return gen_illegal_exception(dc);
     }
+    return JMP_NONE;
 }
 
-static void dec_float(DisasContext *dc, uint32_t insn)
+static JmpStatus dec_float(DisasContext *dc, uint32_t insn)
 {
     uint32_t op0;
     uint32_t ra, rb, rd;
@@ -1469,12 +1481,12 @@ static void dec_float(DisasContext *dc, uint32_t insn)
 #endif
 
     default:
-        gen_illegal_exception(dc);
-        break;
+        return gen_illegal_exception(dc);
     }
+    return JMP_NONE;
 }
 
-static void disas_openrisc_insn(DisasContext *dc, OpenRISCCPU *cpu)
+static JmpStatus disas_openrisc_insn(DisasContext *dc, OpenRISCCPU *cpu)
 {
     uint32_t op0;
     uint32_t insn;
@@ -1483,40 +1495,23 @@ static void disas_openrisc_insn(DisasContext *dc, OpenRISCCPU *cpu)
 
     switch (op0) {
     case 0x06:
-        dec_M(dc, insn);
-        break;
-
+        return dec_M(dc, insn);
     case 0x08:
-        dec_sys(dc, insn);
-        break;
-
+        return dec_sys(dc, insn);
     case 0x2e:
-        dec_logic(dc, insn);
-        break;
-
+        return dec_logic(dc, insn);
     case 0x2f:
-        dec_compi(dc, insn);
-        break;
-
+        return dec_compi(dc, insn);
     case 0x31:
-        dec_mac(dc, insn);
-        break;
-
+        return dec_mac(dc, insn);
     case 0x32:
-        dec_float(dc, insn);
-        break;
-
+        return dec_float(dc, insn);
     case 0x38:
-        dec_calc(dc, insn);
-        break;
-
+        return dec_calc(dc, insn);
     case 0x39:
-        dec_comp(dc, insn);
-        break;
-
+        return dec_comp(dc, insn);
     default:
-        dec_misc(dc, insn);
-        break;
+        return dec_misc(dc, insn);
     }
 }
 
@@ -1529,16 +1524,17 @@ void gen_intermediate_code(CPUOpenRISCState *env, struct TranslationBlock *tb)
     uint32_t next_page_start;
     int num_insns;
     int max_insns;
+    JmpStatus exit;
 
     pc_start = tb->pc;
     dc->tb = tb;
 
-    dc->is_jmp = DISAS_NEXT;
     dc->pc = pc_start;
     dc->mem_idx = cpu_mmu_index(&cpu->env, false);
     dc->tb_flags = tb->flags;
-    dc->delayed_branch = (dc->tb_flags & TB_FLAGS_DFLAG) != 0;
+    dc->dflag = (dc->tb_flags & TB_FLAGS_DFLAG) != 0;
     dc->singlestep_enabled = cs->singlestep_enabled;
+    dc->jmp_type = JMP_VAR;
 
     if (qemu_loglevel_mask(CPU_LOG_TB_IN_ASM)) {
         qemu_log("IN: %s\n", lookup_symbol(pc_start));
@@ -1566,14 +1562,12 @@ void gen_intermediate_code(CPUOpenRISCState *env, struct TranslationBlock *tb)
     }
 
     do {
-        tcg_gen_insn_start(dc->pc, (dc->delayed_branch ? 1 : 0)
-			   | (num_insns ? 2 : 0));
+        tcg_gen_insn_start(dc->pc, dc->dflag | (num_insns ? 2 : 0));
         num_insns++;
 
         if (unlikely(cpu_breakpoint_test(cs, dc->pc, BP_ANY))) {
             tcg_gen_movi_tl(cpu_pc, dc->pc);
-            gen_exception(dc, EXCP_DEBUG);
-            dc->is_jmp = DISAS_UPDATE;
+            exit = gen_exception(dc, EXCP_DEBUG);
             /* The address covered by the breakpoint must be included in
                [tb->pc, tb->pc + tb->size) in order to for it to be
                properly cleared -- thus we increment the PC here so that
@@ -1585,20 +1579,19 @@ void gen_intermediate_code(CPUOpenRISCState *env, struct TranslationBlock *tb)
         if (num_insns == max_insns && (tb->cflags & CF_LAST_IO)) {
             gen_io_start();
         }
-        disas_openrisc_insn(dc, cpu);
-        dc->pc = dc->pc + 4;
 
-        /* delay slot */
-        if (dc->delayed_branch) {
-            dc->delayed_branch--;
-            if (!dc->delayed_branch) {
-                tcg_gen_mov_tl(cpu_pc, jmp_pc);
-                tcg_gen_discard_tl(jmp_pc);
-                dc->is_jmp = DISAS_UPDATE;
-                break;
+        if (dc->dflag) {
+            /* In delay slot.  We will exit next.  */
+            exit = disas_openrisc_insn(dc, cpu);
+            dc->dflag = false;
+            if (exit != JMP_EXCP) {
+                exit = dc->jmp_type;
             }
+        } else {
+            exit = disas_openrisc_insn(dc, cpu);
         }
-    } while (!dc->is_jmp
+        dc->pc += 4;
+    } while (exit == JMP_NONE
              && !tcg_op_buf_full()
              && !cs->singlestep_enabled
              && !singlestep
@@ -1609,34 +1602,39 @@ void gen_intermediate_code(CPUOpenRISCState *env, struct TranslationBlock *tb)
         gen_io_end();
     }
 
-    if ((dc->tb_flags & TB_FLAGS_DFLAG ? 1 : 0) != (dc->delayed_branch != 0)) {
-        tcg_gen_movi_i32(cpu_dflag, dc->delayed_branch != 0);
+    if (dc->dflag != !!(dc->tb_flags & TB_FLAGS_DFLAG)) {
+        tcg_gen_movi_i32(cpu_dflag, dc->dflag);
     }
-
     tcg_gen_movi_tl(cpu_ppc, dc->pc - 4);
-    if (dc->is_jmp == DISAS_NEXT) {
-        dc->is_jmp = DISAS_UPDATE;
+
+    switch (exit) {
+    case JMP_NONE:
         tcg_gen_movi_tl(cpu_pc, dc->pc);
-    }
-    if (unlikely(cs->singlestep_enabled)) {
-        gen_exception(dc, EXCP_DEBUG);
-    } else {
-        switch (dc->is_jmp) {
-        case DISAS_NEXT:
-            gen_goto_tb(dc, 0, dc->pc);
-            break;
-        default:
-        case DISAS_JUMP:
-            break;
-        case DISAS_UPDATE:
-            /* indicate that the hash table must be used
-               to find the next TB */
+        if (unlikely(cs->singlestep_enabled)) {
+            gen_exception_1(EXCP_DEBUG);
+        } else {
             tcg_gen_exit_tb(0);
-            break;
-        case DISAS_TB_JUMP:
-            /* nothing more to generate */
-            break;
         }
+        break;
+    case JMP_VAR:
+        tcg_gen_mov_tl(cpu_pc, jmp_pc);
+        tcg_gen_discard_tl(jmp_pc);
+        if (unlikely(cs->singlestep_enabled)) {
+            gen_exception_1(EXCP_DEBUG);
+        } else {
+            tcg_gen_exit_tb(0);
+        }
+        break;
+    case JMP_DIRECT:
+        if (unlikely(cs->singlestep_enabled)) {
+            tcg_gen_movi_tl(cpu_pc, dc->jmp_dest[0]);
+            gen_exception_1(EXCP_DEBUG);
+        } else {
+            gen_goto_tb(dc, 0, dc->jmp_dest[0]);
+        }
+        break;
+    case JMP_EXCP:
+        break;
     }
 
     gen_tb_end(tb, num_insns);
