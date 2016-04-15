@@ -44,6 +44,7 @@ typedef enum {
     JMP_EXCP,
     JMP_VAR,
     JMP_DIRECT,
+    JMP_COND
 } JmpStatus;
 
 typedef struct DisasContext {
@@ -54,6 +55,7 @@ typedef struct DisasContext {
     bool dflag;
     bool singlestep_enabled;
     JmpStatus jmp_type;
+    TCGv jmp_cond;
     target_ulong jmp_dest[2];
 } DisasContext;
 
@@ -204,20 +206,11 @@ static JmpStatus gen_jump(DisasContext *dc, int32_t n26,
 
     case 0x03:     /* l.bnf */
     case 0x04:     /* l.bf  */
-        {
-            TCGv t_next = tcg_const_tl(dc->pc + 8);
-            TCGv t_true = tcg_const_tl(tmp_pc);
-            TCGv t_zero = tcg_const_tl(0);
-
-            tcg_gen_movcond_tl(op0 == 0x03 ? TCG_COND_EQ : TCG_COND_NE,
-                               jmp_pc, cpu_sr_f, t_zero, t_true, t_next);
-
-            tcg_temp_free(t_next);
-            tcg_temp_free(t_true);
-            tcg_temp_free(t_zero);
-
-            dc->jmp_type = JMP_VAR;
-        }
+        dc->jmp_type = JMP_COND;
+        dc->jmp_dest[op0 != 4] = tmp_pc;
+        dc->jmp_dest[op0 == 4] = dc->pc + 8;
+        dc->jmp_cond = tcg_temp_new();
+        tcg_gen_mov_tl(dc->jmp_cond, cpu_sr_f);
         break;
 
     case 0x11:     /* l.jr */
@@ -753,13 +746,11 @@ static JmpStatus dec_misc(DisasContext *dc, uint32_t insn)
     switch (op0) {
     case 0x00:    /* l.j */
         LOG_DIS("l.j %d\n", N26);
-        gen_jump(dc, N26, 0, op0);
-        break;
+        return gen_jump(dc, N26, 0, op0);
 
     case 0x01:    /* l.jal */
         LOG_DIS("l.jal %d\n", N26);
-        gen_jump(dc, N26, 0, op0);
-        break;
+        return gen_jump(dc, N26, 0, op0);
 
     case 0x02:    /* l.adrp */
         LOG_DIS("l.adrp r%d,%d\n", rd, N21);
@@ -769,13 +760,11 @@ static JmpStatus dec_misc(DisasContext *dc, uint32_t insn)
 
     case 0x03:    /* l.bnf */
         LOG_DIS("l.bnf %d\n", N26);
-        gen_jump(dc, N26, 0, op0);
-        break;
+        return gen_jump(dc, N26, 0, op0);
 
     case 0x04:    /* l.bf */
         LOG_DIS("l.bf %d\n", N26);
-        gen_jump(dc, N26, 0, op0);
-        break;
+        return gen_jump(dc, N26, 0, op0);
 
     case 0x05:
         switch (op1) {
@@ -789,13 +778,11 @@ static JmpStatus dec_misc(DisasContext *dc, uint32_t insn)
 
     case 0x11:    /* l.jr */
         LOG_DIS("l.jr r%d\n", rb);
-         gen_jump(dc, 0, rb, op0);
-         break;
+        return gen_jump(dc, 0, rb, op0);
 
     case 0x12:    /* l.jalr */
         LOG_DIS("l.jalr r%d\n", rb);
-        gen_jump(dc, 0, rb, op0);
-        break;
+        return gen_jump(dc, 0, rb, op0);
 
     case 0x13:    /* l.maci */
         LOG_DIS("l.maci r%d, %d\n", ra, I16);
@@ -1631,6 +1618,21 @@ void gen_intermediate_code(CPUOpenRISCState *env, struct TranslationBlock *tb)
             gen_exception_1(EXCP_DEBUG);
         } else {
             gen_goto_tb(dc, 0, dc->jmp_dest[0]);
+        }
+        break;
+    case JMP_COND:
+        if (unlikely(cs->singlestep_enabled)) {
+            TCGv z = tcg_const_tl(0);
+            TCGv t = tcg_const_tl(dc->jmp_dest[0]);
+            TCGv f = tcg_const_tl(dc->jmp_dest[1]);
+            tcg_gen_movcond_tl(TCG_COND_NE, cpu_pc, dc->jmp_cond, z, t, f);
+            gen_exception_1(EXCP_DEBUG);
+        } else {
+            TCGLabel *lab = gen_new_label();
+            tcg_gen_brcondi_tl(TCG_COND_EQ, dc->jmp_cond, 0, lab);
+            gen_goto_tb(dc, 0, dc->jmp_dest[0]);
+            gen_set_label(lab);
+            gen_goto_tb(dc, 1, dc->jmp_dest[1]);
         }
         break;
     case JMP_EXCP:
