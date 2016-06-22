@@ -131,6 +131,28 @@ void HELPER(iround_FP0)(CPUM68KState *env)
     floatx80_to_FP0(env, res);
 }
 
+static inline void restore_precision_mode(CPUM68KState *env)
+{
+    int rounding_precision;
+
+    rounding_precision = (env->fpcr >> 6) & 0x03;
+
+    switch (rounding_precision) {
+    case 0: /* extended */
+        set_floatx80_rounding_precision(80, &env->fp_status);
+        break;
+    case 1: /* single */
+        set_floatx80_rounding_precision(32, &env->fp_status);
+        break;
+    case 2: /* double */
+        set_floatx80_rounding_precision(64, &env->fp_status);
+        break;
+    case 3: /* reserved */
+    default:
+        break;
+    }
+}
+
 static inline void restore_rounding_mode(CPUM68KState *env)
 {
     int rounding_mode;
@@ -153,6 +175,13 @@ static inline void restore_rounding_mode(CPUM68KState *env)
     }
 }
 
+void HELPER(set_fpcr)(CPUM68KState *env, uint32_t val)
+{
+    env->fpcr = val & 0xffff;
+
+    restore_precision_mode(env);
+    restore_rounding_mode(env);
+}
 
 void HELPER(itrunc_FP0)(CPUM68KState *env)
 {
@@ -256,4 +285,25 @@ uint32_t HELPER(compare_FP0)(CPUM68KState *env)
 {
     return floatx80_compare_quiet(FP0_to_floatx80(env), floatx80_zero,
                                   &env->fp_status);
+}
+
+void HELPER(update_fpsr)(CPUM68KState *env)
+{
+    uint32_t fpcc = 0;
+    floatx80 val = FP0_to_floatx80(env);
+
+    if (floatx80_is_any_nan(val)) {
+        fpcc |= FCCF_A;
+    }
+    if (floatx80_is_infinity(val)) {
+        fpcc |= FCCF_I;
+    }
+    if (floatx80_is_neg(val)) {
+        fpcc |= FCCF_N;
+    }
+    if (floatx80_is_zero(val)) {
+        fpcc |= FCCF_Z;
+    }
+
+    env->fpsr = (env->fpsr & ~FCCF_MASK) | fpcc;
 }

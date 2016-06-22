@@ -51,6 +51,8 @@ static char cpu_reg_names[2*8*3 + 5*4];
 static TCGv cpu_dregs[8];
 static TCGv cpu_aregs[8];
 static TCGv_i64 cpu_macc[4];
+static TCGv QEMU_FPSR;
+static TCGv QEMU_FPCR;
 
 #define REG(insn, pos)  (((insn) >> (pos)) & 7)
 #define DREG(insn, pos) cpu_dregs[REG(insn, pos)]
@@ -115,6 +117,11 @@ void m68k_tcg_init(void)
                                          offsetof(CPUM68KState, macc[i]), p);
         p += 5;
     }
+
+    QEMU_FPSR = tcg_global_mem_new(cpu_env, offsetof(CPUM68KState, fpsr),
+                                   "FPSR");
+    QEMU_FPCR = tcg_global_mem_new(cpu_env, offsetof(CPUM68KState, fpcr),
+                                   "FPCR");
 
     NULL_QREG = tcg_global_mem_new(cpu_env, -4, "NULL");
     store_dummy = tcg_global_mem_new(cpu_env, -8, "NULL");
@@ -3949,6 +3956,124 @@ DISAS_INSN(trap)
     gen_exception(s, s->pc - 2, EXCP_TRAP0 + (insn & 0xf));
 }
 
+static void gen_store_fcr(DisasContext *s, TCGv addr, int reg)
+{
+    int index = IS_USER(s);
+
+    switch (reg) {
+    case 0: /* FPSR */
+        gen_helper_update_fpsr(cpu_env);
+        tcg_gen_qemu_st32(QEMU_FPSR, addr, index);
+        break;
+    case 1: /* FPIAR */
+        break;
+    case 2: /* FPCR */
+        tcg_gen_qemu_st32(QEMU_FPCR, addr, index);
+        break;
+    }
+}
+
+static void gen_load_fcr(DisasContext *s, TCGv addr, int reg)
+{
+    int index = IS_USER(s);
+    TCGv val;
+
+    switch (reg) {
+    case 0: /* FPSR */
+        tcg_gen_qemu_ld32u(QEMU_FPSR, addr, index);
+        break;
+    case 1: /* FPIAR */
+        break;
+    case 2: /* FPCR */
+        val = tcg_temp_new();
+        tcg_gen_qemu_ld32u(val, addr, index);
+        gen_helper_set_fpcr(cpu_env, val);
+        tcg_temp_free(val);
+        break;
+    }
+}
+
+static void gen_op_fmove_fcr(CPUM68KState *env, DisasContext *s,
+                             uint32_t insn, uint32_t ext)
+{
+    int mask = (ext >> 10) & 7;
+    int is_write = (ext >> 13) & 1;
+    int i;
+    TCGv addr, tmp;
+
+    tmp = gen_lea(env, s, insn, OS_LONG);
+    if (IS_NULL_QREG(tmp)) {
+        TCGv val;
+
+        if (is_write) {
+            switch (mask) {
+            case 1: /* FPIAR */
+                break;
+            case 2: /* FPSR */
+                gen_helper_update_fpsr(cpu_env);
+                DEST_EA(env, insn, OS_LONG, QEMU_FPSR, NULL);
+                break;
+            case 4: /* FPCR */
+                DEST_EA(env, insn, OS_LONG, QEMU_FPCR, NULL);
+                break;
+            }
+            return;
+        }
+        switch (mask) {
+        case 1: /* FPIAR */
+            break;
+        case 2: /* FPSR */
+            SRC_EA(env, QEMU_FPSR, OS_LONG, 0, NULL);
+            break;
+        case 4: /* FPCR */
+            SRC_EA(env, val, OS_LONG, 0, NULL);
+            gen_helper_set_fpcr(cpu_env, val);
+            break;
+        }
+        return;
+    }
+
+    addr = tcg_temp_new();
+    tcg_gen_mov_i32(addr, tmp);
+
+    /* mask:
+     *
+     * 0b100 Floating-Point Control Register
+     * 0b010 Floating-Point Status Register
+     * 0b001 Floating-Point Instruction Address Register
+     *
+     */
+
+    if (is_write && (insn & 070) == 040) {
+        for (i = 2; i >= 0; i--, mask >>= 1) {
+            if (mask & 1) {
+                gen_store_fcr(s, addr, i);
+                if (mask != 1) {
+                    tcg_gen_subi_i32(addr, addr, opsize_bytes(OS_LONG));
+                }
+            }
+       }
+       tcg_gen_mov_i32(AREG(insn, 0), addr);
+    } else {
+        for (i = 0; i < 3; i++, mask >>= 1) {
+            if (mask & 1) {
+                if (is_write) {
+                    gen_store_fcr(s, addr, i);
+                } else {
+                    gen_load_fcr(s, addr, i);
+                }
+                if (mask != 1 || (insn & 070) == 030) {
+                    tcg_gen_addi_i32(addr, addr, opsize_bytes(OS_LONG));
+                }
+            }
+        }
+        if ((insn & 070) == 030) {
+            tcg_gen_mov_i32(AREG(insn, 0), addr);
+        }
+    }
+    tcg_temp_free_i32(addr);
+}
+
 /* ??? FP exceptions are not implemented.  Most exceptions are deferred until
    immediately before the next FP instruction is executed.  */
 DISAS_INSN(fpu)
@@ -3975,32 +4100,9 @@ DISAS_INSN(fpu)
         }
         return;
     case 4: /* fmove to control register.  */
-        switch ((ext >> 10) & 7) {
-        case 4: /* FPCR */
-            /* Not implemented.  Ignore writes.  */
-            break;
-        case 1: /* FPIAR */
-        case 2: /* FPSR */
-        default:
-            cpu_abort(NULL, "Unimplemented: fmove to control %d",
-                      (ext >> 10) & 7);
-        }
-        break;
     case 5: /* fmove from control register.  */
-        switch ((ext >> 10) & 7) {
-        case 4: /* FPCR */
-            /* Not implemented.  Always return zero.  */
-            tmp32 = tcg_const_i32(0);
-            break;
-        case 1: /* FPIAR */
-        case 2: /* FPSR */
-        default:
-            cpu_abort(NULL, "Unimplemented: fmove from control %d",
-                      (ext >> 10) & 7);
-            goto undef;
-        }
-        DEST_EA(env, insn, OS_LONG, tmp32, NULL);
-        break;
+        gen_op_fmove_fcr(env, s, insn, ext);
+        return;
     case 6: /* fmovem */
     case 7:
         {
