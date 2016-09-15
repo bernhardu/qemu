@@ -124,7 +124,7 @@ static void kvm_apic_vapic_base_update(APICCommonState *s)
     }
 }
 
-static void kvm_apic_put(void *data)
+static void kvm_apic_put(CPUState *cs, void *data)
 {
     APICCommonState *s = data;
     struct kvm_lapic_state kapic;
