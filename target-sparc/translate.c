@@ -2111,13 +2111,14 @@ static DisasASI get_asi(DisasContext *dc, int insn, TCGMemOp memop)
     if (IS_IMM) {
         asi = dc->asi;
     }
-    /* With v9, all asis below 0x80 are privileged.  */
-    /* ??? We ought to check cpu_has_hypervisor, but we didn't copy
-       down that bit into DisasContext.  For the moment that's ok,
-       since the direct implementations below doesn't have any ASIs
-       in the restricted [0x30, 0x7f] range, and the check will be
-       done properly in the helper.  */
-    if (!supervisor(dc) && asi < 0x80) {
+    /* ASIs >= 0x80 are user mode.
+     * ASIs >= 0x30 are hyper mode (or super if hyper is not available).
+     * ASIs <= 0x2f are super mode.
+     */
+    if (asi < 0x80
+        && !hypervisor(dc)
+        && (!supervisor(dc)
+            || (asi >= 0x30 && (dc->def->features & CPU_FEATURE_HYPV)))) {
         gen_exception(dc, TT_PRIV_ACT);
         type = GET_ASI_EXCP;
     } else {
