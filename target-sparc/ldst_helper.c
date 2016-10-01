@@ -1664,14 +1664,21 @@ void sparc_cpu_unassigned_access(CPUState *cs, hwaddr addr,
 {
     SPARCCPU *cpu = SPARC_CPU(cs);
     CPUSPARCState *env = &cpu->env;
-    int tt = is_exec ? TT_CODE_ACCESS : TT_DATA_ACCESS;
 
 #ifdef DEBUG_UNASSIGNED
     printf("Unassigned mem access to " TARGET_FMT_plx " from " TARGET_FMT_lx
            "\n", addr, env->pc);
 #endif
 
-    cpu_raise_exception_ra(env, tt, GETPC());
+    if (is_exec) {
+        if (env->lsu & (IMMU_E)) {
+            helper_raise_exception(env, TT_CODE_ACCESS);
+        }
+    } else {
+        if (env->lsu & (DMMU_E)) {
+            helper_raise_exception(env, TT_DATA_ACCESS);
+        }
+    }
 }
 #endif
 #endif
