@@ -228,7 +228,7 @@ enum {
 #if !defined(TARGET_SPARC64)
 #define NB_MMU_MODES 3
 #else
-#define NB_MMU_MODES 7
+#define NB_MMU_MODES 6
 typedef struct trap_state {
     uint64_t tpc;
     uint64_t tnpc;
@@ -670,8 +670,7 @@ int cpu_sparc_signal_handler(int host_signum, void *pinfo, void *puc);
 #define MMU_KERNEL_IDX 2
 #define MMU_KERNEL_SECONDARY_IDX 3
 #define MMU_NUCLEUS_IDX 4
-#define MMU_HYPV_IDX   5
-#define MMU_PHYS_IDX   6
+#define MMU_PHYS_IDX   5
 #else
 #define MMU_USER_IDX   0
 #define MMU_KERNEL_IDX 1
@@ -693,6 +692,11 @@ static inline int cpu_supervisor_mode(CPUSPARCState *env1)
 {
     return env1->pstate & PS_PRIV;
 }
+#else
+static inline int cpu_supervisor_mode(CPUSPARCState *env1)
+{
+    return env1->psrs;
+}
 #endif
 
 static inline int cpu_mmu_index(CPUSPARCState *env, bool ifetch)
@@ -712,7 +716,7 @@ static inline int cpu_mmu_index(CPUSPARCState *env, bool ifetch)
         : (env->lsu & DMMU_E) == 0) {
         return MMU_PHYS_IDX;
     } else if (cpu_hypervisor_mode(env)) {
-        return MMU_HYPV_IDX;
+        return MMU_PHYS_IDX;
     } else if (env->tl > 0) {
         return MMU_NUCLEUS_IDX;
     } else if (cpu_supervisor_mode(env)) {
@@ -760,6 +764,8 @@ trap_state* cpu_tsptr(CPUSPARCState* env);
 #define TB_FLAG_MMU_MASK     7
 #define TB_FLAG_FPU_ENABLED  (1 << 4)
 #define TB_FLAG_AM_ENABLED   (1 << 5)
+#define TB_FLAG_SUPER        (1 << 6)
+#define TB_FLAG_HYPER        (1 << 7)
 #define TB_FLAG_ASI_SHIFT    24
 
 static inline void cpu_get_tb_cpu_state(CPUSPARCState *env, target_ulong *pc,
@@ -769,7 +775,13 @@ static inline void cpu_get_tb_cpu_state(CPUSPARCState *env, target_ulong *pc,
     *pc = env->pc;
     *cs_base = env->npc;
     flags = cpu_mmu_index(env, false);
+    if (cpu_supervisor_mode(env)) {
+        flags |= TB_FLAG_SUPER;
+    }
 #ifdef TARGET_SPARC64
+    if (cpu_hypervisor_mode(env)) {
+        flags |= TB_FLAG_HYPER;
+    }
     if (env->pstate & PS_AM) {
         flags |= TB_FLAG_AM_ENABLED;
     }
