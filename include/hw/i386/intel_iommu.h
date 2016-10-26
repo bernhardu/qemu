@@ -122,7 +122,7 @@ enum {
 /* Interrupt Remapping Table Entry Definition */
 union VTD_IR_TableEntry {
     struct {
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
         uint32_t dest_id:32;         /* Destination ID */
         uint32_t __reserved_1:8;     /* Reserved 1 */
         uint32_t vector:8;           /* Interrupt Vector */
@@ -150,7 +150,7 @@ union VTD_IR_TableEntry {
         uint32_t dest_id:32;         /* Destination ID */
 #endif
         uint16_t source_id:16;       /* Source-ID */
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
         uint64_t __reserved_2:44;    /* Reserved 2 */
         uint64_t sid_vtype:2;        /* Source-ID Validation Type */
         uint64_t sid_q:2;            /* Source-ID Qualifier */
@@ -169,7 +169,7 @@ union VTD_IR_TableEntry {
 /* Programming format for MSI/MSI-X addresses */
 union VTD_IR_MSIAddress {
     struct {
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
         uint32_t __head:12;          /* Should always be: 0x0fee */
         uint32_t index_l:15;         /* Interrupt index bit 14-0 */
         uint32_t int_mode:1;         /* Interrupt format */
@@ -205,7 +205,7 @@ struct VTDIrq {
 struct VTD_MSIMessage {
     union {
         struct {
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
             uint32_t __addr_head:12; /* 0xfee */
             uint32_t dest:8;
             uint32_t __reserved:8;
@@ -226,7 +226,7 @@ struct VTD_MSIMessage {
     };
     union {
         struct {
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
             uint16_t trigger_mode:1;
             uint16_t level:1;
             uint16_t __resved:3;

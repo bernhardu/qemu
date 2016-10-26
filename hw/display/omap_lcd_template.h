@@ -146,7 +146,7 @@ static void glue(draw_line12_, DEPTH)(void *opaque,
 static void glue(draw_line16_, DEPTH)(void *opaque,
                 uint8_t *d, const uint8_t *s, int width, int deststep)
 {
-#if defined(HOST_WORDS_BIGENDIAN) == defined(TARGET_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN == defined(TARGET_WORDS_BIGENDIAN)
     memcpy(d, s, width * 2);
 #else
     uint16_t v;

@@ -337,7 +337,7 @@ typedef struct XtensaConfigList {
     struct XtensaConfigList *next;
 } XtensaConfigList;
 
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
 enum {
     FP_F32_HIGH,
     FP_F32_LOW,

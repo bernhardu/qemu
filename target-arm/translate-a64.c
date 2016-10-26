@@ -528,7 +528,7 @@ static inline int vec_reg_offset(DisasContext *s, int regno,
                                  int element, TCGMemOp size)
 {
     int offs = offsetof(CPUARMState, vfp.regs[regno * 2]);
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
     /* This is complicated slightly because vfp.regs[2n] is
      * still the low half and  vfp.regs[2n+1] the high half
      * of the 128 bit vector, even on big endian systems.
@@ -552,7 +552,7 @@ static inline int vec_reg_offset(DisasContext *s, int regno,
 static inline int fp_reg_offset(DisasContext *s, int regno, TCGMemOp size)
 {
     int offs = offsetof(CPUARMState, vfp.regs[regno * 2]);
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
     offs += (8 - (1 << size));
 #endif
     assert_fp_access_checked(s);

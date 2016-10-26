@@ -1793,7 +1793,7 @@ typedef union _ppc_vsr_t {
     float64 f64[2];
 } ppc_vsr_t;
 
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define VsrW(i) u32[i]
 #define VsrD(i) u64[i]
 #else

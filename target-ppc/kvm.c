@@ -710,7 +710,7 @@ static int kvm_put_fp(CPUState *cs)
         for (i = 0; i < 32; i++) {
             uint64_t vsr[2];
 
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
             vsr[0] = float64_val(env->fpr[i]);
             vsr[1] = env->vsr[i];
 #else
@@ -786,7 +786,7 @@ static int kvm_get_fp(CPUState *cs)
                         vsx ? "VSR" : "FPR", i, strerror(errno));
                 return ret;
             } else {
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
                 env->fpr[i] = vsr[0];
                 if (vsx) {
                     env->vsr[i] = vsr[1];

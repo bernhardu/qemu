@@ -277,7 +277,7 @@ void disas(FILE *out, void *code, unsigned long size)
     s.info.buffer_vma = (uintptr_t)code;
     s.info.buffer_length = size;
 
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
     s.info.endian = BFD_ENDIAN_BIG;
 #else
     s.info.endian = BFD_ENDIAN_LITTLE;

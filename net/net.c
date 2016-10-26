@@ -496,7 +496,7 @@ void qemu_set_vnet_hdr_len(NetClientState *nc, int len)
 
 int qemu_set_vnet_le(NetClientState *nc, bool is_le)
 {
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
     if (!nc || !nc->info->set_vnet_le) {
         return -ENOSYS;
     }
@@ -509,7 +509,7 @@ int qemu_set_vnet_le(NetClientState *nc, bool is_le)
 
 int qemu_set_vnet_be(NetClientState *nc, bool is_be)
 {
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
     return 0;
 #else
     if (!nc || !nc->info->set_vnet_be) {

@@ -255,7 +255,7 @@ void virtio_gpu_get_display_info(VirtIOGPU *g,
 static pixman_format_code_t get_pixman_format(uint32_t virtio_gpu_format)
 {
     switch (virtio_gpu_format) {
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
     case VIRTIO_GPU_FORMAT_B8G8R8X8_UNORM:
         return PIXMAN_b8g8r8x8;
     case VIRTIO_GPU_FORMAT_B8G8R8A8_UNORM:
@@ -1115,7 +1115,7 @@ static void virtio_gpu_device_realize(DeviceState *qdev, Error **errp)
     g->req_state[0].height = 768;
 
     g->use_virgl_renderer = false;
-#if !defined(CONFIG_VIRGL) || defined(HOST_WORDS_BIGENDIAN)
+#if !defined(CONFIG_VIRGL) || HOST_WORDS_BIGENDIAN
     have_virgl = false;
 #else
     have_virgl = display_opengl;

@@ -270,7 +270,7 @@ typedef enum TCGMemOp {
     MO_SIGN  = 4,   /* Sign-extended, otherwise zero-extended.  */
 
     MO_BSWAP = 8,   /* Host reverse endian.  */
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
     MO_LE    = MO_BSWAP,
     MO_BE    = 0,
 #else

@@ -148,7 +148,7 @@ static void ppc64_write_elf64_vmxregset(NoteFuncArg *arg, PowerPCCPU *cpu)
     for (i = 0; i < 32; i++) {
         bool needs_byteswap;
 
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
         needs_byteswap = s->dump_info.d_endian == ELFDATA2LSB;
 #else
         needs_byteswap = s->dump_info.d_endian == ELFDATA2MSB;

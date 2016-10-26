@@ -28,7 +28,7 @@
 #include "libdecnumber/dpd/decimal64.h"
 #include "libdecnumber/dpd/decimal128.h"
 
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define HI_IDX 0
 #define LO_IDX 1
 #else

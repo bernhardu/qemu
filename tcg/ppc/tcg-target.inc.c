@@ -1282,7 +1282,7 @@ void ppc_tb_set_jmp_target(uintptr_t jmp_addr, uintptr_t addr)
         i1 = ADDIS | TAI(TCG_REG_TMP1, 0, addr >> 16);
         i2 = ORI | SAI(TCG_REG_TMP1, TCG_REG_TMP1, addr);
     }
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
     pair = (uint64_t)i1 << 32 | i2;
 #else
     pair = (uint64_t)i2 << 32 | i1;

@@ -35,7 +35,7 @@
 #define __le32  uint32_t
 #define __le64  uint64_t
 
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define __BIG_ENDIAN_BITFIELD
 #else
 #endif
@@ -752,7 +752,7 @@ struct Vmxnet3_DriverShared {
 #undef __le16
 #undef __le32
 #undef __le64
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #undef __BIG_ENDIAN_BITFIELD
 #endif
 

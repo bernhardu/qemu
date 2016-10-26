@@ -399,7 +399,7 @@ static void vga_draw_line24_be(VGACommonState *s1, uint8_t *d,
 static void vga_draw_line32_le(VGACommonState *s1, uint8_t *d,
                                const uint8_t *s, int width)
 {
-#ifndef HOST_WORDS_BIGENDIAN
+#if !HOST_WORDS_BIGENDIAN
     memcpy(d, s, width * 4);
 #else
     int w;
@@ -420,7 +420,7 @@ static void vga_draw_line32_le(VGACommonState *s1, uint8_t *d,
 static void vga_draw_line32_be(VGACommonState *s1, uint8_t *d,
                                const uint8_t *s, int width)
 {
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
     memcpy(d, s, width * 4);
 #else
     int w;

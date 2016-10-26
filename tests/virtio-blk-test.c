@@ -119,7 +119,7 @@ static QVirtioPCIDevice *virtio_blk_pci_init(QPCIBus *bus, int slot)
 
 static inline void virtio_blk_fix_request(QVirtioBlkReq *req)
 {
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
     bool host_endian = true;
 #else
     bool host_endian = false;

@@ -452,7 +452,7 @@ int load_elf_as(const char *filename,
         ret = ELF_LOAD_NOT_ELF;
         goto fail;
     }
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
     data_order = ELFDATA2MSB;
 #else
     data_order = ELFDATA2LSB;
@@ -487,7 +487,7 @@ int load_elf_as(const char *filename,
 
 static void bswap_uboot_header(uboot_image_header_t *hdr)
 {
-#ifndef HOST_WORDS_BIGENDIAN
+#if !HOST_WORDS_BIGENDIAN
     bswap32s(&hdr->ih_magic);
     bswap32s(&hdr->ih_hcrc);
     bswap32s(&hdr->ih_time);

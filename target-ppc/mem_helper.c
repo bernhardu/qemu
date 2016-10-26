@@ -217,7 +217,7 @@ target_ulong helper_lscbx(CPUPPCState *env, target_ulong addr, uint32_t reg,
 
 /*****************************************************************************/
 /* Altivec extension helpers */
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define HI_IDX 0
 #define LO_IDX 1
 #else

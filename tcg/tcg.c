@@ -50,7 +50,7 @@
 #else
 # define ELF_CLASS  ELFCLASS64
 #endif
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
 # define ELF_DATA   ELFDATA2MSB
 #else
 # define ELF_DATA   ELFDATA2LSB
@@ -524,7 +524,7 @@ int tcg_global_mem_new_internal(TCGType type, TCGv_ptr base,
     TCGTemp *base_ts = &s->temps[GET_TCGV_PTR(base)];
     TCGTemp *ts = tcg_global_alloc(s);
     int indirect_reg = 0, bigendian = 0;
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
     bigendian = 1;
 #endif
 
@@ -799,7 +799,7 @@ void tcg_gen_callN(TCGContext *s, void *func, TCGArg ret,
         }
 #else
         if (TCG_TARGET_REG_BITS < 64 && (sizemask & 1)) {
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
             s->gen_opparam_buf[pi++] = ret + 1;
             s->gen_opparam_buf[pi++] = ret;
 #else
@@ -836,7 +836,7 @@ void tcg_gen_callN(TCGContext *s, void *func, TCGArg ret,
               order.  If another such target is added, this logic may
               have to get more complicated to differentiate between
               stack arguments and register arguments.  */
-#if defined(HOST_WORDS_BIGENDIAN) != defined(TCG_TARGET_STACK_GROWSUP)
+#if HOST_WORDS_BIGENDIAN != defined(TCG_TARGET_STACK_GROWSUP)
             s->gen_opparam_buf[pi++] = args[i] + 1;
             s->gen_opparam_buf[pi++] = args[i];
 #else

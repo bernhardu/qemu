@@ -197,7 +197,7 @@ typedef struct CPUClass {
     void (*disas_set_info)(CPUState *cpu, disassemble_info *info);
 } CPUClass;
 
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
 typedef struct icount_decr_u16 {
     uint16_t high;
     uint16_t low;

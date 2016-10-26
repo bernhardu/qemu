@@ -427,7 +427,7 @@ target_ulong helper_602_mfrom(target_ulong arg)
 
 /*****************************************************************************/
 /* Altivec extension helpers */
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define HI_IDX 0
 #define LO_IDX 1
 #define AVRB(i) u8[i]
@@ -439,7 +439,7 @@ target_ulong helper_602_mfrom(target_ulong arg)
 #define AVRW(i) u32[3-(i)]
 #endif
 
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define VECTOR_FOR_INORDER_I(index, element)                    \
     for (index = 0; index < ARRAY_SIZE(r->element); index++)
 #else
@@ -510,7 +510,7 @@ void helper_lvsr(ppc_avr_t *r, target_ulong sh)
 
 void helper_mtvscr(CPUPPCState *env, ppc_avr_t *r)
 {
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
     env->vscr = r->u32[3];
 #else
     env->vscr = r->u32[0];
@@ -898,7 +898,7 @@ target_ulong helper_vctzlsbb(ppc_avr_t *r)
 {
     target_ulong count = 0;
     int i;
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
     for (i = ARRAY_SIZE(r->u8) - 1; i >= 0; i--) {
 #else
     for (i = 0; i < ARRAY_SIZE(r->u8); i++) {
@@ -1003,7 +1003,7 @@ void helper_vmladduhm(ppc_avr_t *r, ppc_avr_t *a, ppc_avr_t *b, ppc_avr_t *c)
         }                                                               \
         *r = result;                                                    \
     }
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define MRGHI 0
 #define MRGLO 1
 #else
@@ -1164,7 +1164,7 @@ void helper_vperm(CPUPPCState *env, ppc_avr_t *r, ppc_avr_t *a, ppc_avr_t *b,
 
     VECTOR_FOR_INORDER_I(i, u8) {
         int s = c->u8[i] & 0x1f;
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
         int index = s & 0xf;
 #else
         int index = 15 - (s & 0xf);
@@ -1187,7 +1187,7 @@ void helper_vpermr(CPUPPCState *env, ppc_avr_t *r, ppc_avr_t *a, ppc_avr_t *b,
 
     VECTOR_FOR_INORDER_I(i, u8) {
         int s = c->u8[i] & 0x1f;
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
         int index = 15 - (s & 0xf);
 #else
         int index = s & 0xf;
@@ -1202,7 +1202,7 @@ void helper_vpermr(CPUPPCState *env, ppc_avr_t *r, ppc_avr_t *a, ppc_avr_t *b,
     *r = result;
 }
 
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define VBPERMQ_INDEX(avr, i) ((avr)->u8[(i)])
 #define VBPERMD_INDEX(i) (i)
 #define VBPERMQ_DW(index) (((index) & 0x40) != 0)
@@ -1518,7 +1518,7 @@ void helper_vgbbd(ppc_avr_t *r, ppc_avr_t *b)
     uint64_t t[2] = { 0, 0 };
 
     VECTOR_FOR_INORDER_I(i, u8) {
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
         t[i>>3] |= VGBBD_MASKS[b->u8[i]] >> (i & 7);
 #else
         t[i>>3] |= VGBBD_MASKS[b->u8[i]] >> (7-(i & 7));
@@ -1599,7 +1599,7 @@ void helper_vpmsumd(ppc_avr_t *r, ppc_avr_t *a, ppc_avr_t *b)
 }
 
 
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define PKBIG 1
 #else
 #define PKBIG 0
@@ -1608,7 +1608,7 @@ void helper_vpkpx(ppc_avr_t *r, ppc_avr_t *a, ppc_avr_t *b)
 {
     int i, j;
     ppc_avr_t result;
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
     const ppc_avr_t *x[2] = { a, b };
 #else
     const ppc_avr_t *x[2] = { b, a };
@@ -1829,7 +1829,7 @@ void helper_vsldoi(ppc_avr_t *r, ppc_avr_t *a, ppc_avr_t *b, uint32_t shift)
     int i;
     ppc_avr_t result;
 
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
     for (i = 0; i < ARRAY_SIZE(r->u8); i++) {
         int index = sh + i;
         if (index > 0xf) {
@@ -1855,7 +1855,7 @@ void helper_vslo(ppc_avr_t *r, ppc_avr_t *a, ppc_avr_t *b)
 {
     int sh = (b->u8[LO_IDX*0xf] >> 3) & 0xf;
 
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
     memmove(&r->u8[0], &a->u8[sh], 16 - sh);
     memset(&r->u8[16-sh], 0, sh);
 #else
@@ -1866,7 +1866,7 @@ void helper_vslo(ppc_avr_t *r, ppc_avr_t *a, ppc_avr_t *b)
 
 /* Experimental testing shows that hardware masks the immediate.  */
 #define _SPLAT_MASKED(element) (splat & (ARRAY_SIZE(r->element) - 1))
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define SPLAT_ELEMENT(element) _SPLAT_MASKED(element)
 #else
 #define SPLAT_ELEMENT(element)                                  \
@@ -1888,7 +1888,7 @@ VSPLT(w, u32)
 #undef VSPLT
 #undef SPLAT_ELEMENT
 #undef _SPLAT_MASKED
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define VINSERT(suffix, element)                                            \
     void helper_vinsert##suffix(ppc_avr_t *r, ppc_avr_t *b, uint32_t index) \
     {                                                                       \
@@ -1908,7 +1908,7 @@ VINSERT(h, u16)
 VINSERT(w, u32)
 VINSERT(d, u64)
 #undef VINSERT
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define VEXTRACT(suffix, element)                                            \
     void helper_vextract##suffix(ppc_avr_t *r, ppc_avr_t *b, uint32_t index) \
     {                                                                        \
@@ -1988,7 +1988,7 @@ void helper_vsro(ppc_avr_t *r, ppc_avr_t *a, ppc_avr_t *b)
 {
     int sh = (b->u8[LO_IDX * 0xf] >> 3) & 0xf;
 
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
     memmove(&r->u8[sh], &a->u8[0], 16 - sh);
     memset(&r->u8[0], 0, sh);
 #else
@@ -2013,7 +2013,7 @@ void helper_vsumsws(CPUPPCState *env, ppc_avr_t *r, ppc_avr_t *a, ppc_avr_t *b)
     ppc_avr_t result;
     int sat = 0;
 
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
     upper = ARRAY_SIZE(r->s32)-1;
 #else
     upper = 0;
@@ -2037,7 +2037,7 @@ void helper_vsum2sws(CPUPPCState *env, ppc_avr_t *r, ppc_avr_t *a, ppc_avr_t *b)
     ppc_avr_t result;
     int sat = 0;
 
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
     upper = 1;
 #else
     upper = 0;
@@ -2113,7 +2113,7 @@ void helper_vsum4ubs(CPUPPCState *env, ppc_avr_t *r, ppc_avr_t *a, ppc_avr_t *b)
     }
 }
 
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define UPKHI 1
 #define UPKLO 0
 #else
@@ -2226,7 +2226,7 @@ VGENERIC_DO(popcntd, u64)
 
 #undef VGENERIC_DO
 
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define QW_ONE { .u64 = { 0, 1 } }
 #else
 #define QW_ONE { .u64 = { 1, 0 } }
@@ -2418,7 +2418,7 @@ void helper_vsubecuq(ppc_avr_t *r, ppc_avr_t *a, ppc_avr_t *b, ppc_avr_t *c)
 #define BCD_NEG_ALT     0xB
 #define BCD_PLUS_ALT_2  0xE
 
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define BCD_DIG_BYTE(n) (15 - (n/2))
 #else
 #define BCD_DIG_BYTE(n) (n/2)
@@ -2679,7 +2679,7 @@ void helper_vncipherlast(ppc_avr_t *r, ppc_avr_t *a, ppc_avr_t *b)
 }
 
 #define ROTRu32(v, n) (((v) >> (n)) | ((v) << (32-n)))
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define EL_IDX(i) (i)
 #else
 #define EL_IDX(i) (3 - (i))
@@ -2720,7 +2720,7 @@ void helper_vshasigmaw(ppc_avr_t *r,  ppc_avr_t *a, uint32_t st_six)
 #undef EL_IDX
 
 #define ROTRu64(v, n) (((v) >> (n)) | ((v) << (64-n)))
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
 #define EL_IDX(i) (i)
 #else
 #define EL_IDX(i) (1 - (i))
@@ -2768,7 +2768,7 @@ void helper_vpermxor(ppc_avr_t *r,  ppc_avr_t *a, ppc_avr_t *b, ppc_avr_t *c)
     VECTOR_FOR_INORDER_I(i, u8) {
         int indexA = c->u8[i] >> 4;
         int indexB = c->u8[i] & 0xF;
-#if defined(HOST_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN
         result.u8[i] = a->u8[indexA] ^ b->u8[indexB];
 #else
         result.u8[i] = a->u8[15-indexA] ^ b->u8[15-indexB];

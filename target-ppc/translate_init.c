@@ -9455,7 +9455,7 @@ static void dump_ppc_insns (CPUPPCState *env)
 
 static bool avr_need_swap(CPUPPCState *env)
 {
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
     return msr_le;
 #else
     return !msr_le;

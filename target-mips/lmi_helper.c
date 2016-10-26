@@ -35,7 +35,7 @@ typedef union {
 } LMIValue;
 
 /* Some byte ordering issues can be mitigated by XORing in the following.  */
-#ifdef HOST_WORDS_BIGENDIAN
+#if HOST_WORDS_BIGENDIAN
 # define BYTE_ORDER_XOR(N) N
 #else
 # define BYTE_ORDER_XOR(N) 0

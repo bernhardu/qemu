@@ -5032,7 +5032,9 @@ if test "$strip_opt" = "yes" ; then
   echo "STRIP=${strip}" >> $config_host_mak
 fi
 if test "$bigendian" = "yes" ; then
-  echo "HOST_WORDS_BIGENDIAN=y" >> $config_host_mak
+  echo "HOST_WORDS_BIGENDIAN=1" >> $config_host_mak
+else
+  echo "HOST_WORDS_BIGENDIAN=0" >> $config_host_mak
 fi
 if test "$mingw32" = "yes" ; then
   echo "CONFIG_WIN32=y" >> $config_host_mak
