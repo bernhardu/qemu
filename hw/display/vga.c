@@ -86,30 +86,13 @@ const uint8_t gr_mask[16] = {
     0x00, /* 0x0f */
 };
 
-#define cbswap_32(__x) \
-((uint32_t)( \
-		(((uint32_t)(__x) & (uint32_t)0x000000ffUL) << 24) | \
-		(((uint32_t)(__x) & (uint32_t)0x0000ff00UL) <<  8) | \
-		(((uint32_t)(__x) & (uint32_t)0x00ff0000UL) >>  8) | \
-		(((uint32_t)(__x) & (uint32_t)0xff000000UL) >> 24) ))
-
-#if HOST_WORDS_BIGENDIAN
-#define PAT(x) cbswap_32(x)
-#else
-#define PAT(x) (x)
-#endif
-
-#if HOST_WORDS_BIGENDIAN
-#define BIG 1
-#else
-#define BIG 0
-#endif
-
-#if HOST_WORDS_BIGENDIAN
-#define GET_PLANE(data, p) (((data) >> (24 - (p) * 8)) & 0xff)
-#else
-#define GET_PLANE(data, p) (((data) >> ((p) * 8)) & 0xff)
-#endif
+#define PAT(x) \
+  ((uint32_t)(HOST_WORDS_BIGENDIAN                                 \
+              ? (((uint32_t)(x) & (uint32_t)0x000000ffUL) << 24) | \
+		(((uint32_t)(x) & (uint32_t)0x0000ff00UL) <<  8) | \
+		(((uint32_t)(x) & (uint32_t)0x00ff0000UL) >>  8) | \
+		(((uint32_t)(x) & (uint32_t)0xff000000UL) >> 24)   \
+              : (x)))
 
 static const uint32_t mask16[16] = {
     PAT(0x00000000),
@@ -132,11 +115,11 @@ static const uint32_t mask16[16] = {
 
 #undef PAT
 
-#if HOST_WORDS_BIGENDIAN
-#define PAT(x) (x)
-#else
-#define PAT(x) cbswap_32(x)
-#endif
+static inline uint32_t GET_PLANE(uint32_t data, int p)
+{
+    p = (HOST_WORDS_BIGENDIAN ? 24 - p * 8 : p * 8);
+    return extract32(data, p, 8);
+}
 
 static uint32_t expand4[256];
 static uint16_t expand2[256];
@@ -1298,13 +1281,13 @@ static void vga_draw_text(VGACommonState *s, int full_update)
                 if (cx > cx_max)
                     cx_max = cx;
                 *ch_attr_ptr = ch_attr;
-#if HOST_WORDS_BIGENDIAN
-                ch = ch_attr >> 8;
-                cattr = ch_attr & 0xff;
-#else
-                ch = ch_attr & 0xff;
-                cattr = ch_attr >> 8;
-#endif
+                if (HOST_WORDS_BIGENDIAN) {
+                    ch = ch_attr >> 8;
+                    cattr = ch_attr & 0xff;
+                } else {
+                    ch = ch_attr & 0xff;
+                    cattr = ch_attr >> 8;
+                }
                 font_ptr = font_base[(cattr >> 3) & 1];
                 font_ptr += 32 * 4 * ch;
                 bgcol = palette[cattr >> 4];
@@ -1475,11 +1458,7 @@ static void vga_draw_graphic(VGACommonState *s, int full_update)
     vga_draw_line_func *vga_draw_line = NULL;
     bool share_surface;
     pixman_format_code_t format;
-#if HOST_WORDS_BIGENDIAN
-    bool byteswap = !s->big_endian_fb;
-#else
-    bool byteswap = s->big_endian_fb;
-#endif
+    bool byteswap = HOST_WORDS_BIGENDIAN ^ s->big_endian_fb;
 
     full_update |= update_basic_params(s);
 
@@ -2205,11 +2184,7 @@ void vga_common_init(VGACommonState *s, Object *obj, bool global_vmstate)
      * into a device attribute set by the machine/platform to remove
      * all target endian dependencies from this file.
      */
-#if TARGET_WORDS_BIGENDIAN
-    s->default_endian_fb = true;
-#else
-    s->default_endian_fb = false;
-#endif
+    s->default_endian_fb = TARGET_WORDS_BIGENDIAN;
     vga_dirty_log_start(s);
 }
 

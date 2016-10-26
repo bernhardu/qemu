@@ -111,20 +111,14 @@ static drawfn glue(pl110_draw_fn_,BITS)[48] =
 
 #if ORDER == 0
 #define NAME glue(glue(lblp_, BORDER), BITS)
-#if HOST_WORDS_BIGENDIAN
-#define SWAP_WORDS 1
-#endif
+#define SWAP_WORDS (HOST_WORDS_BIGENDIAN)
 #elif ORDER == 1
 #define NAME glue(glue(bbbp_, BORDER), BITS)
-#if !HOST_WORDS_BIGENDIAN
-#define SWAP_WORDS 1
-#endif
+#define SWAP_WORDS (!HOST_WORDS_BIGENDIAN)
 #else
 #define SWAP_PIXELS 1
 #define NAME glue(glue(lbbp_, BORDER), BITS)
-#if HOST_WORDS_BIGENDIAN
-#define SWAP_WORDS 1
-#endif
+#define SWAP_WORDS (HOST_WORDS_BIGENDIAN)
 #endif
 
 #define FN_2(x, y) FN(x, y) FN(x+1, y)
@@ -142,17 +136,17 @@ static void glue(pl110_draw_line1_,NAME)(void *opaque, uint8_t *d, const uint8_t
 #else
 #define FN(x, y) COPY_PIXEL(d, palette[(data >> ((x) + y)) & 1]);
 #endif
-#ifdef SWAP_WORDS
-        FN_8(24)
-        FN_8(16)
-        FN_8(8)
-        FN_8(0)
-#else
-        FN_8(0)
-        FN_8(8)
-        FN_8(16)
-        FN_8(24)
-#endif
+        if (SWAP_WORDS) {
+            FN_8(24)
+            FN_8(16)
+            FN_8(8)
+            FN_8(0)
+        } else {
+            FN_8(0)
+            FN_8(8)
+            FN_8(16)
+            FN_8(24)
+        }
 #undef FN
         width -= 32;
         src += 4;
@@ -170,17 +164,17 @@ static void glue(pl110_draw_line2_,NAME)(void *opaque, uint8_t *d, const uint8_t
 #else
 #define FN(x, y) COPY_PIXEL(d, palette[(data >> ((x)*2 + y)) & 3]);
 #endif
-#ifdef SWAP_WORDS
-        FN_4(0, 24)
-        FN_4(0, 16)
-        FN_4(0, 8)
-        FN_4(0, 0)
-#else
-        FN_4(0, 0)
-        FN_4(0, 8)
-        FN_4(0, 16)
-        FN_4(0, 24)
-#endif
+        if (SWAP_WORDS) {
+            FN_4(0, 24)
+            FN_4(0, 16)
+            FN_4(0, 8)
+            FN_4(0, 0)
+        } else {
+            FN_4(0, 0)
+            FN_4(0, 8)
+            FN_4(0, 16)
+            FN_4(0, 24)
+        }
 #undef FN
         width -= 16;
         src += 4;
@@ -198,17 +192,17 @@ static void glue(pl110_draw_line4_,NAME)(void *opaque, uint8_t *d, const uint8_t
 #else
 #define FN(x, y) COPY_PIXEL(d, palette[(data >> ((x)*4 + y)) & 0xf]);
 #endif
-#ifdef SWAP_WORDS
-        FN_2(0, 24)
-        FN_2(0, 16)
-        FN_2(0, 8)
-        FN_2(0, 0)
-#else
-        FN_2(0, 0)
-        FN_2(0, 8)
-        FN_2(0, 16)
-        FN_2(0, 24)
-#endif
+        if (SWAP_WORDS) {
+            FN_2(0, 24)
+            FN_2(0, 16)
+            FN_2(0, 8)
+            FN_2(0, 0)
+        } else {
+            FN_2(0, 0)
+            FN_2(0, 8)
+            FN_2(0, 16)
+            FN_2(0, 24)
+        }
 #undef FN
         width -= 8;
         src += 4;
@@ -222,17 +216,17 @@ static void glue(pl110_draw_line8_,NAME)(void *opaque, uint8_t *d, const uint8_t
     while (width > 0) {
         data = *(uint32_t *)src;
 #define FN(x) COPY_PIXEL(d, palette[(data >> (x)) & 0xff]);
-#ifdef SWAP_WORDS
-        FN(24)
-        FN(16)
-        FN(8)
-        FN(0)
-#else
-        FN(0)
-        FN(8)
-        FN(16)
-        FN(24)
-#endif
+        if (SWAP_WORDS) {
+            FN(24)
+            FN(16)
+            FN(8)
+            FN(0)
+        } else {
+            FN(0)
+            FN(8)
+            FN(16)
+            FN(24)
+        }
 #undef FN
         width -= 4;
         src += 4;
@@ -245,9 +239,9 @@ static void glue(pl110_draw_line16_,NAME)(void *opaque, uint8_t *d, const uint8_
     unsigned int r, g, b;
     while (width > 0) {
         data = *(uint32_t *)src;
-#ifdef SWAP_WORDS
-        data = bswap32(data);
-#endif
+        if (SWAP_WORDS) {
+            data = bswap32(data);
+        }
 #ifdef RGB
 #define LSB r
 #define MSB b
@@ -298,15 +292,15 @@ static void glue(pl110_draw_line32_,NAME)(void *opaque, uint8_t *d, const uint8_
 #define LSB b
 #define MSB r
 #endif
-#ifndef SWAP_WORDS
-        LSB = data & 0xff;
-        g = (data >> 8) & 0xff;
-        MSB = (data >> 16) & 0xff;
-#else
-        LSB = (data >> 24) & 0xff;
-        g = (data >> 16) & 0xff;
-        MSB = (data >> 8) & 0xff;
-#endif
+        if (SWAP_WORDS) {
+            LSB = (data >> 24) & 0xff;
+            g = (data >> 16) & 0xff;
+            MSB = (data >> 8) & 0xff;
+        } else {
+            LSB = data & 0xff;
+            g = (data >> 8) & 0xff;
+            MSB = (data >> 16) & 0xff;
+        }
         COPY_PIXEL(d, glue(rgb_to_pixel,BITS)(r, g, b));
 #undef MSB
 #undef LSB
@@ -322,9 +316,9 @@ static void glue(pl110_draw_line16_555_,NAME)(void *opaque, uint8_t *d, const ui
     unsigned int r, g, b;
     while (width > 0) {
         data = *(uint32_t *)src;
-#ifdef SWAP_WORDS
-        data = bswap32(data);
-#endif
+        if (SWAP_WORDS) {
+            data = bswap32(data);
+        }
 #ifdef RGB
 #define LSB r
 #define MSB b
@@ -360,9 +354,9 @@ static void glue(pl110_draw_line12_,NAME)(void *opaque, uint8_t *d, const uint8_
     unsigned int r, g, b;
     while (width > 0) {
         data = *(uint32_t *)src;
-#ifdef SWAP_WORDS
-        data = bswap32(data);
-#endif
+        if (SWAP_WORDS) {
+            data = bswap32(data);
+        }
 #ifdef RGB
 #define LSB r
 #define MSB b

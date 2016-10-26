@@ -81,15 +81,15 @@ static void glue(draw_line32_, PIXEL_NAME)(
 
     do {
 	ldub_p(s);
-#if TARGET_WORDS_BIGENDIAN
-        r = s[1];
-        g = s[2];
-        b = s[3];
-#else
-        b = s[0];
-        g = s[1];
-        r = s[2];
-#endif
+        if (TARGET_WORDS_BIGENDIAN) {
+            r = s[1];
+            g = s[2];
+            b = s[3];
+        } else {
+            b = s[0];
+            g = s[1];
+            r = s[2];
+        }
 	((PIXEL_TYPE *) d)[0] = glue(rgb_to_pixel, PIXEL_NAME)(r, g, b);
 	s += 4;
 	d += BPP;

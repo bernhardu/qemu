@@ -146,22 +146,22 @@ static void glue(draw_line12_, DEPTH)(void *opaque,
 static void glue(draw_line16_, DEPTH)(void *opaque,
                 uint8_t *d, const uint8_t *s, int width, int deststep)
 {
-#if HOST_WORDS_BIGENDIAN == TARGET_WORDS_BIGENDIAN
-    memcpy(d, s, width * 2);
-#else
-    uint16_t v;
-    uint8_t r, g, b;
+    if (HOST_WORDS_BIGENDIAN == TARGET_WORDS_BIGENDIAN) {
+        memcpy(d, s, width * 2);
+    } else {
+        uint16_t v;
+        uint8_t r, g, b;
 
-    do {
-        v = lduw_le_p((void *) s);
-        r = (v >> 8) & 0xf8;
-        g = (v >> 3) & 0xfc;
-        b = (v << 3) & 0xf8;
-        ((PIXEL_TYPE *) d)[0] = glue(rgb_to_pixel, DEPTH)(r, g, b);
-        s += 2;
-        d += BPP;
-    } while (-- width != 0);
-#endif
+        do {
+            v = lduw_le_p((void *) s);
+            r = (v >> 8) & 0xf8;
+            g = (v >> 3) & 0xfc;
+            b = (v << 3) & 0xf8;
+            ((PIXEL_TYPE *) d)[0] = glue(rgb_to_pixel, DEPTH)(r, g, b);
+            s += 2;
+            d += BPP;
+        } while (-- width != 0);
+    }
 }
 
 #undef DEPTH

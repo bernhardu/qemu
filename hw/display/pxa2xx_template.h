@@ -35,10 +35,6 @@
 # error unknown bit depth
 #endif
 
-#if HOST_WORDS_BIGENDIAN
-# define SWAP_WORDS	1
-#endif
-
 #define FN_2(x)		FN(x + 1) FN(x)
 #define FN_4(x)		FN_2(x + 2) FN_2(x)
 
@@ -50,17 +46,17 @@ static void glue(pxa2xx_draw_line2_, BITS)(void *opaque,
     while (width > 0) {
         data = *(uint32_t *) src;
 #define FN(x)		COPY_PIXEL(dest, palette[(data >> ((x) * 2)) & 3]);
-#ifdef SWAP_WORDS
-        FN_4(12)
-        FN_4(8)
-        FN_4(4)
-        FN_4(0)
-#else
-        FN_4(0)
-        FN_4(4)
-        FN_4(8)
-        FN_4(12)
-#endif
+        if (HOST_WORDS_BIGENDIAN) {
+            FN_4(12)
+            FN_4(8)
+            FN_4(4)
+            FN_4(0)
+        } else {
+            FN_4(0)
+            FN_4(4)
+            FN_4(8)
+            FN_4(12)
+        }
 #undef FN
         width -= 16;
         src += 4;
@@ -75,17 +71,17 @@ static void glue(pxa2xx_draw_line4_, BITS)(void *opaque,
     while (width > 0) {
         data = *(uint32_t *) src;
 #define FN(x)		COPY_PIXEL(dest, palette[(data >> ((x) * 4)) & 0xf]);
-#ifdef SWAP_WORDS
-        FN_2(6)
-        FN_2(4)
-        FN_2(2)
-        FN_2(0)
-#else
-        FN_2(0)
-        FN_2(2)
-        FN_2(4)
-        FN_2(6)
-#endif
+        if (HOST_WORDS_BIGENDIAN) {
+            FN_2(6)
+            FN_2(4)
+            FN_2(2)
+            FN_2(0)
+        } else {
+            FN_2(0)
+            FN_2(2)
+            FN_2(4)
+            FN_2(6)
+        }
 #undef FN
         width -= 8;
         src += 4;
@@ -100,17 +96,17 @@ static void glue(pxa2xx_draw_line8_, BITS)(void *opaque,
     while (width > 0) {
         data = *(uint32_t *) src;
 #define FN(x)		COPY_PIXEL(dest, palette[(data >> (x)) & 0xff]);
-#ifdef SWAP_WORDS
-        FN(24)
-        FN(16)
-        FN(8)
-        FN(0)
-#else
-        FN(0)
-        FN(8)
-        FN(16)
-        FN(24)
-#endif
+        if (HOST_WORDS_BIGENDIAN) {
+            FN(24)
+            FN(16)
+            FN(8)
+            FN(0)
+        } else {
+            FN(0)
+            FN(8)
+            FN(16)
+            FN(24)
+        }
 #undef FN
         width -= 4;
         src += 4;
@@ -124,9 +120,9 @@ static void glue(pxa2xx_draw_line16_, BITS)(void *opaque,
     unsigned int r, g, b;
     while (width > 0) {
         data = *(uint32_t *) src;
-#ifdef SWAP_WORDS
-        data = bswap32(data);
-#endif
+        if (HOST_WORDS_BIGENDIAN) {
+            data = bswap32(data);
+        }
         b = (data & 0x1f) << 3;
         data >>= 5;
         g = (data & 0x3f) << 2;
@@ -152,9 +148,9 @@ static void glue(pxa2xx_draw_line16t_, BITS)(void *opaque,
     unsigned int r, g, b;
     while (width > 0) {
         data = *(uint32_t *) src;
-#ifdef SWAP_WORDS
-        data = bswap32(data);
-#endif
+        if (HOST_WORDS_BIGENDIAN) {
+            data = bswap32(data);
+        }
         b = (data & 0x1f) << 3;
         data >>= 5;
         g = (data & 0x1f) << 3;
@@ -188,9 +184,9 @@ static void glue(pxa2xx_draw_line18_, BITS)(void *opaque,
     unsigned int r, g, b;
     while (width > 0) {
         data = *(uint32_t *) src;
-#ifdef SWAP_WORDS
-        data = bswap32(data);
-#endif
+        if (HOST_WORDS_BIGENDIAN) {
+            data = bswap32(data);
+        }
         b = (data & 0x3f) << 2;
         data >>= 6;
         g = (data & 0x3f) << 2;
@@ -215,11 +211,11 @@ static void glue(pxa2xx_draw_line18p_, BITS)(void *opaque,
         src += 4;
         data[2] = *(uint32_t *) src;
         src += 4;
-#ifdef SWAP_WORDS
-        data[0] = bswap32(data[0]);
-        data[1] = bswap32(data[1]);
-        data[2] = bswap32(data[2]);
-#endif
+        if (HOST_WORDS_BIGENDIAN) {
+            data[0] = bswap32(data[0]);
+            data[1] = bswap32(data[1]);
+            data[2] = bswap32(data[2]);
+        }
         b = (data[0] & 0x3f) << 2;
         data[0] >>= 6;
         g = (data[0] & 0x3f) << 2;
@@ -258,9 +254,9 @@ static void glue(pxa2xx_draw_line19_, BITS)(void *opaque,
     unsigned int r, g, b;
     while (width > 0) {
         data = *(uint32_t *) src;
-#ifdef SWAP_WORDS
-        data = bswap32(data);
-#endif
+        if (HOST_WORDS_BIGENDIAN) {
+            data = bswap32(data);
+        }
         b = (data & 0x3f) << 2;
         data >>= 6;
         g = (data & 0x3f) << 2;
@@ -289,11 +285,11 @@ static void glue(pxa2xx_draw_line19p_, BITS)(void *opaque,
         src += 4;
         data[2] = *(uint32_t *) src;
         src += 4;
-# ifdef SWAP_WORDS
-        data[0] = bswap32(data[0]);
-        data[1] = bswap32(data[1]);
-        data[2] = bswap32(data[2]);
-# endif
+        if (HOST_WORDS_BIGENDIAN) {
+            data[0] = bswap32(data[0]);
+            data[1] = bswap32(data[1]);
+            data[2] = bswap32(data[2]);
+        }
         b = (data[0] & 0x3f) << 2;
         data[0] >>= 6;
         g = (data[0] & 0x3f) << 2;
@@ -348,9 +344,9 @@ static void glue(pxa2xx_draw_line24_, BITS)(void *opaque,
     unsigned int r, g, b;
     while (width > 0) {
         data = *(uint32_t *) src;
-#ifdef SWAP_WORDS
-        data = bswap32(data);
-#endif
+        if (HOST_WORDS_BIGENDIAN) {
+            data = bswap32(data);
+        }
         b = data & 0xff;
         data >>= 8;
         g = data & 0xff;
@@ -369,9 +365,9 @@ static void glue(pxa2xx_draw_line24t_, BITS)(void *opaque,
     unsigned int r, g, b;
     while (width > 0) {
         data = *(uint32_t *) src;
-#ifdef SWAP_WORDS
-        data = bswap32(data);
-#endif
+        if (HOST_WORDS_BIGENDIAN) {
+            data = bswap32(data);
+        }
         b = (data & 0x7f) << 1;
         data >>= 7;
         g = data & 0xff;
@@ -394,9 +390,9 @@ static void glue(pxa2xx_draw_line25_, BITS)(void *opaque,
     unsigned int r, g, b;
     while (width > 0) {
         data = *(uint32_t *) src;
-#ifdef SWAP_WORDS
-        data = bswap32(data);
-#endif
+        if (HOST_WORDS_BIGENDIAN) {
+            data = bswap32(data);
+        }
         b = data & 0xff;
         data >>= 8;
         g = data & 0xff;
@@ -441,7 +437,3 @@ static drawfn glue(glue(pxa2xx_draw_fn_, BITS), t)[16] =
 #undef BITS
 #undef COPY_PIXEL
 #undef SKIP_PIXEL
-
-#ifdef SWAP_WORDS
-# undef SWAP_WORDS
-#endif
