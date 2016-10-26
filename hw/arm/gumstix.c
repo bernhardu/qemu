@@ -66,7 +66,7 @@ static void connex_init(MachineState *machine)
         exit(1);
     }
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     be = 1;
 #else
     be = 0;
@@ -104,7 +104,7 @@ static void verdex_init(MachineState *machine)
         exit(1);
     }
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     be = 1;
 #else
     be = 0;

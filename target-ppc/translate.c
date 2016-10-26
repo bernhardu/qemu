@@ -218,7 +218,7 @@ struct DisasContext {
 /* Return true iff byteswap is needed in a scalar memop */
 static inline bool need_byteswap(const DisasContext *ctx)
 {
-#if defined(TARGET_WORDS_BIGENDIAN)
+#if TARGET_WORDS_BIGENDIAN
      return ctx->le_mode;
 #else
      return !ctx->le_mode;

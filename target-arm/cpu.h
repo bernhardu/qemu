@@ -2240,7 +2240,7 @@ static inline bool bswap_code(bool sctlr_b)
      * would also end up as a mixed-endian mode with BE code, LE data.
      */
     return
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
         1 ^
 #endif
         sctlr_b;
@@ -2321,7 +2321,7 @@ static inline int fp_exception_el(CPUARMState *env)
 static inline bool arm_cpu_bswap_data(CPUARMState *env)
 {
     return
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
        1 ^
 #endif
        arm_cpu_data_is_big_endian(env);

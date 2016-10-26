@@ -1311,7 +1311,7 @@ static int target_setup_sigframe(struct target_rt_sigframe *sf,
     }
 
     for (i = 0; i < 32; i++) {
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
         __put_user(env->vfp.regs[i * 2], &aux->fpsimd.vregs[i * 2 + 1]);
         __put_user(env->vfp.regs[i * 2 + 1], &aux->fpsimd.vregs[i * 2]);
 #else
@@ -1363,7 +1363,7 @@ static int target_restore_sigframe(CPUARMState *env,
     }
 
     for (i = 0; i < 32; i++) {
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
         __get_user(env->vfp.regs[i * 2], &aux->fpsimd.vregs[i * 2 + 1]);
         __get_user(env->vfp.regs[i * 2 + 1], &aux->fpsimd.vregs[i * 2]);
 #else
@@ -4646,8 +4646,8 @@ static target_ulong get_sigframe(struct target_sigaction *ka,
     return (oldsp - frame_size) & ~0xFUL;
 }
 
-#if ((defined(TARGET_WORDS_BIGENDIAN) && HOST_WORDS_BIGENDIAN) || \
-     (!HOST_WORDS_BIGENDIAN && !defined(TARGET_WORDS_BIGENDIAN)))
+#if ((TARGET_WORDS_BIGENDIAN && HOST_WORDS_BIGENDIAN) || \
+     (!HOST_WORDS_BIGENDIAN && !TARGET_WORDS_BIGENDIAN))
 #define PPC_VEC_HI      0
 #define PPC_VEC_LO      1
 #else

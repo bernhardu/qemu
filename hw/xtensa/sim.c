@@ -95,7 +95,7 @@ static void xtensa_sim_init(MachineState *machine)
     if (kernel_filename) {
         uint64_t elf_entry;
         uint64_t elf_lowaddr;
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
         int success = load_elf(kernel_filename, translate_phys_addr, cpu,
                 &elf_entry, &elf_lowaddr, NULL, 1, EM_XTENSA, 0, 0);
 #else

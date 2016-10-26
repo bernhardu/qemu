@@ -355,7 +355,7 @@ static uint64_t malta_fpga_read(void *opaque, hwaddr addr,
 
     /* STATUS Register */
     case 0x00208:
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
         val = 0x00000012;
 #else
         val = 0x00000010;
@@ -671,7 +671,7 @@ static void write_bootloader(uint8_t *base, int64_t run_addr,
     /* Load BAR registers as done by YAMON */
     stl_p(p++, 0x3c09b400);                                      /* lui t1, 0xb400 */
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     stl_p(p++, 0x3c08df00);                                      /* lui t0, 0xdf00 */
 #else
     stl_p(p++, 0x340800df);                                      /* ori t0, r0, 0x00df */
@@ -680,39 +680,39 @@ static void write_bootloader(uint8_t *base, int64_t run_addr,
 
     stl_p(p++, 0x3c09bbe0);                                      /* lui t1, 0xbbe0 */
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     stl_p(p++, 0x3c08c000);                                      /* lui t0, 0xc000 */
 #else
     stl_p(p++, 0x340800c0);                                      /* ori t0, r0, 0x00c0 */
 #endif
     stl_p(p++, 0xad280048);                                      /* sw t0, 0x0048(t1) */
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     stl_p(p++, 0x3c084000);                                      /* lui t0, 0x4000 */
 #else
     stl_p(p++, 0x34080040);                                      /* ori t0, r0, 0x0040 */
 #endif
     stl_p(p++, 0xad280050);                                      /* sw t0, 0x0050(t1) */
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     stl_p(p++, 0x3c088000);                                      /* lui t0, 0x8000 */
 #else
     stl_p(p++, 0x34080080);                                      /* ori t0, r0, 0x0080 */
 #endif
     stl_p(p++, 0xad280058);                                      /* sw t0, 0x0058(t1) */
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     stl_p(p++, 0x3c083f00);                                      /* lui t0, 0x3f00 */
 #else
     stl_p(p++, 0x3408003f);                                      /* ori t0, r0, 0x003f */
 #endif
     stl_p(p++, 0xad280060);                                      /* sw t0, 0x0060(t1) */
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     stl_p(p++, 0x3c08c100);                                      /* lui t0, 0xc100 */
 #else
     stl_p(p++, 0x340800c1);                                      /* ori t0, r0, 0x00c1 */
 #endif
     stl_p(p++, 0xad280080);                                      /* sw t0, 0x0080(t1) */
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     stl_p(p++, 0x3c085e00);                                      /* lui t0, 0x5e00 */
 #else
     stl_p(p++, 0x3408005e);                                      /* ori t0, r0, 0x005e */
@@ -804,7 +804,7 @@ static int64_t load_kernel (void)
     int prom_index = 0;
     uint64_t (*xlate_to_kseg0) (void *opaque, uint64_t addr);
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     big_endian = 1;
 #else
     big_endian = 0;
@@ -1076,7 +1076,7 @@ void mips_malta_init(MachineState *machine)
     generate_eeprom_spd(&smbus_eeprom_buf[0 * 256], ram_size);
     generate_eeprom_serial(&smbus_eeprom_buf[6 * 256]);
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     be = 1;
 #else
     be = 0;
@@ -1158,7 +1158,7 @@ void mips_malta_init(MachineState *machine)
         }
         /* In little endian mode the 32bit words in the bios are swapped,
            a neat trick which allows bi-endian firmware. */
-#ifndef TARGET_WORDS_BIGENDIAN
+#if !TARGET_WORDS_BIGENDIAN
         {
             uint32_t *end, *addr = rom_ptr(FLASH_ADDRESS);
             if (!addr) {

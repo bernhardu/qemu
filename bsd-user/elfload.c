@@ -171,7 +171,7 @@ static inline void init_thread(struct target_pt_regs *regs, struct image_info *i
 #define elf_check_arch(x) ( (x) == EM_ARM )
 
 #define ELF_CLASS       ELFCLASS32
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
 #define ELF_DATA        ELFDATA2MSB
 #else
 #define ELF_DATA        ELFDATA2LSB
@@ -297,7 +297,7 @@ static inline void init_thread(struct target_pt_regs *regs, struct image_info *i
 
 #endif
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
 #define ELF_DATA        ELFDATA2MSB
 #else
 #define ELF_DATA        ELFDATA2LSB
@@ -383,7 +383,7 @@ static inline void init_thread(struct target_pt_regs *_regs, struct image_info *
 #else
 #define ELF_CLASS   ELFCLASS32
 #endif
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
 #define ELF_DATA        ELFDATA2MSB
 #else
 #define ELF_DATA        ELFDATA2LSB

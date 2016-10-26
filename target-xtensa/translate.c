@@ -898,7 +898,7 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
     } while (0)
 
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
 #define OP0 (((b0) & 0xf0) >> 4)
 #define OP1 (((b2) & 0xf0) >> 4)
 #define OP2 ((b2) & 0xf)
@@ -924,7 +924,7 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
 #define RRI4_R RRR_R
 #define RRI4_S RRR_S
 #define RRI4_T RRR_T
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
 #define RRI4_IMM4 ((b2) & 0xf)
 #else
 #define RRI4_IMM4 (((b2) & 0xf0) >> 4)
@@ -936,13 +936,13 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
 #define RRI8_IMM8 (b2)
 #define RRI8_IMM8_SE ((((b2) & 0x80) ? 0xffffff00 : 0) | RRI8_IMM8)
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
 #define RI16_IMM16 (((b1) << 8) | (b2))
 #else
 #define RI16_IMM16 (((b2) << 8) | (b1))
 #endif
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
 #define CALL_N (((b0) & 0xc) >> 2)
 #define CALL_OFFSET ((((b0) & 0x3) << 16) | ((b1) << 8) | (b2))
 #else
@@ -953,7 +953,7 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
     (((CALL_OFFSET & 0x20000) ? 0xfffc0000 : 0) | CALL_OFFSET)
 
 #define CALLX_N CALL_N
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
 #define CALLX_M ((b0) & 0x3)
 #else
 #define CALLX_M (((b0) & 0xc0) >> 6)
@@ -962,7 +962,7 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
 
 #define BRI12_M CALLX_M
 #define BRI12_S RRR_S
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
 #define BRI12_IMM12 ((((b1) & 0xf) << 8) | (b2))
 #else
 #define BRI12_IMM12 ((((b1) & 0xf0) >> 4) | ((b2) << 4))
@@ -2863,14 +2863,14 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
 
             case 5: /*BBC*/ /*BBS*/
                 if (gen_window_check2(dc, RRI8_S, RRI8_T)) {
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
                     TCGv_i32 bit = tcg_const_i32(0x80000000);
 #else
                     TCGv_i32 bit = tcg_const_i32(0x00000001);
 #endif
                     TCGv_i32 tmp = tcg_temp_new_i32();
                     tcg_gen_andi_i32(tmp, cpu_R[RRI8_T], 0x1f);
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
                     tcg_gen_shr_i32(bit, bit, tmp);
 #else
                     tcg_gen_shl_i32(bit, bit, tmp);
@@ -2887,7 +2887,7 @@ static void disas_xtensa_insn(CPUXtensaState *env, DisasContext *dc)
                 if (gen_window_check1(dc, RRI8_S)) {
                     TCGv_i32 tmp = tcg_temp_new_i32();
                     tcg_gen_andi_i32(tmp, cpu_R[RRI8_S],
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
                             0x80000000 >> (((RRI8_R & 1) << 4) | RRI8_T));
 #else
                             0x00000001 << (((RRI8_R & 1) << 4) | RRI8_T));

@@ -83,7 +83,7 @@ static int64_t load_kernel(void)
     uint32_t *params_buf;
     int big_endian;
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     big_endian = 1;
 #else
     big_endian = 0;
@@ -229,7 +229,7 @@ void mips_r4k_init(MachineState *machine)
     } else {
         bios_size = -1;
     }
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     be = 1;
 #else
     be = 0;

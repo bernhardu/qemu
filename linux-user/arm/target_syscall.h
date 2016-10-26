@@ -20,7 +20,7 @@ struct target_pt_regs {
 #define ARM_NR_semihosting	  0x123456
 #define ARM_NR_thumb_semihosting  0xAB
 
-#if defined(TARGET_WORDS_BIGENDIAN)
+#if TARGET_WORDS_BIGENDIAN
 #define UNAME_MACHINE "armv5teb"
 #else
 #define UNAME_MACHINE "armv5tel"

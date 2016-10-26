@@ -337,7 +337,7 @@ static void flatview_simplify(FlatView *view)
 
 static bool memory_region_big_endian(MemoryRegion *mr)
 {
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     return mr->ops->endianness != DEVICE_LITTLE_ENDIAN;
 #else
     return mr->ops->endianness == DEVICE_BIG_ENDIAN;
@@ -346,7 +346,7 @@ static bool memory_region_big_endian(MemoryRegion *mr)
 
 static bool memory_region_wrong_endianness(MemoryRegion *mr)
 {
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     return mr->ops->endianness == DEVICE_LITTLE_ENDIAN;
 #else
     return mr->ops->endianness == DEVICE_BIG_ENDIAN;

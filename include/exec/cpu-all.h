@@ -40,7 +40,7 @@
  * TARGET_WORDS_BIGENDIAN : same for target cpu
  */
 
-#if HOST_WORDS_BIGENDIAN != defined(TARGET_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN != TARGET_WORDS_BIGENDIAN
 #define BSWAP_NEEDED
 #endif
 
@@ -120,7 +120,7 @@ static inline void tswap64s(uint64_t *s)
 /* Target-endianness CPU memory access functions. These fit into the
  * {ld,st}{type}{sign}{size}{endian}_p naming scheme described in bswap.h.
  */
-#if defined(TARGET_WORDS_BIGENDIAN)
+#if TARGET_WORDS_BIGENDIAN
 #define lduw_p(p) lduw_be_p(p)
 #define ldsw_p(p) ldsw_be_p(p)
 #define ldl_p(p) ldl_be_p(p)

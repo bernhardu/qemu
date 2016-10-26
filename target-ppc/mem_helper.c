@@ -30,7 +30,7 @@
 
 static inline bool needs_byteswap(const CPUPPCState *env)
 {
-#if defined(TARGET_WORDS_BIGENDIAN)
+#if TARGET_WORDS_BIGENDIAN
   return msr_le;
 #else
   return !msr_le;

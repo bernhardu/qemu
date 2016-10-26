@@ -4552,7 +4552,7 @@ int main(int argc, char **argv, char **envp)
         for(i = 0; i < 16; i++) {
             env->regs[i] = regs->uregs[i];
         }
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
         /* Enable BE8.  */
         if (EF_ARM_EABI_VERSION(info->elf_flags) >= EF_ARM_EABI_VER4
             && (info->elf_flags & EF_ARM_BE8)) {

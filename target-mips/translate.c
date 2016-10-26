@@ -2156,7 +2156,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
            fault with the unaligned address.  */
         tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
         tcg_gen_andi_tl(t1, t0, 7);
-#ifndef TARGET_WORDS_BIGENDIAN
+#if !TARGET_WORDS_BIGENDIAN
         tcg_gen_xori_tl(t1, t1, 7);
 #endif
         tcg_gen_shli_tl(t1, t1, 3);
@@ -2178,7 +2178,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
            fault with the unaligned address.  */
         tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
         tcg_gen_andi_tl(t1, t0, 7);
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
         tcg_gen_xori_tl(t1, t1, 7);
 #endif
         tcg_gen_shli_tl(t1, t1, 3);
@@ -2239,7 +2239,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
            fault with the unaligned address.  */
         tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
         tcg_gen_andi_tl(t1, t0, 3);
-#ifndef TARGET_WORDS_BIGENDIAN
+#if !TARGET_WORDS_BIGENDIAN
         tcg_gen_xori_tl(t1, t1, 3);
 #endif
         tcg_gen_shli_tl(t1, t1, 3);
@@ -2262,7 +2262,7 @@ static void gen_ld(DisasContext *ctx, uint32_t opc,
            fault with the unaligned address.  */
         tcg_gen_qemu_ld_tl(t1, t0, ctx->mem_idx, MO_UB);
         tcg_gen_andi_tl(t1, t0, 3);
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
         tcg_gen_xori_tl(t1, t1, 3);
 #endif
         tcg_gen_shli_tl(t1, t1, 3);
@@ -10353,7 +10353,7 @@ static void gen_flt3_arith (DisasContext *ctx, uint32_t opc,
             gen_set_label(l1);
             tcg_gen_brcondi_tl(TCG_COND_NE, t0, 4, l2);
             tcg_temp_free(t0);
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
             gen_load_fpr32(ctx, fp, fs);
             gen_load_fpr32h(ctx, fph, ft);
             gen_store_fpr32h(ctx, fp, fd);
@@ -20234,7 +20234,7 @@ void cpu_state_reset(CPUMIPSState *env)
     /* Reset registers to their default values */
     env->CP0_PRid = env->cpu_model->CP0_PRid;
     env->CP0_Config0 = env->cpu_model->CP0_Config0;
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     env->CP0_Config0 |= (1 << CP0C0_BE);
 #endif
     env->CP0_Config1 = env->cpu_model->CP0_Config1;

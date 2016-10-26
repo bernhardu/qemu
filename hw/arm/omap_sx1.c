@@ -146,7 +146,7 @@ static void sx1_init(MachineState *machine, const int version)
                                 OMAP_CS2_BASE, &cs[3]);
 
     fl_idx = 0;
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     be = 1;
 #else
     be = 0;

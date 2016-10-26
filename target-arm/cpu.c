@@ -426,7 +426,7 @@ static void arm_disas_set_info(CPUState *cpu, disassemble_info *info)
         info->print_insn = print_insn_arm;
     }
     if (bswap_code(arm_sctlr_b(env))) {
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
         info->endian = BFD_ENDIAN_LITTLE;
 #else
         info->endian = BFD_ENDIAN_BIG;

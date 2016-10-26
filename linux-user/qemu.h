@@ -473,7 +473,7 @@ static inline int access_ok(int type, abi_ulong addr, abi_ulong size)
    __builtin_choose_expr(sizeof(*(hptr)) == 8, ldq_##e##_p, abort))))   \
      (hptr)), (void)0)
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
 # define __put_user(x, hptr)  __put_user_e(x, hptr, be)
 # define __get_user(x, hptr)  __get_user_e(x, hptr, be)
 #else

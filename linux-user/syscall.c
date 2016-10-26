@@ -6684,7 +6684,7 @@ void syscall_init(void)
 #if TARGET_ABI_BITS == 32
 static inline uint64_t target_offset64(uint32_t word0, uint32_t word1)
 {
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     return ((uint64_t)word0 << 32) | word1;
 #else
     return ((uint64_t)word1 << 32) | word0;
@@ -7394,7 +7394,7 @@ static int is_proc_myself(const char *filename, const char *entry)
     return 0;
 }
 
-#if HOST_WORDS_BIGENDIAN != defined(TARGET_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN != TARGET_WORDS_BIGENDIAN
 static int is_proc(const char *filename, const char *entry)
 {
     return strcmp(filename, entry) == 0;
@@ -7451,7 +7451,7 @@ static int do_openat(void *cpu_env, int dirfd, const char *pathname, int flags, 
         { "stat", open_self_stat, is_proc_myself },
         { "auxv", open_self_auxv, is_proc_myself },
         { "cmdline", open_self_cmdline, is_proc_myself },
-#if HOST_WORDS_BIGENDIAN != defined(TARGET_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN != TARGET_WORDS_BIGENDIAN
         { "/proc/net/route", open_net_route, is_proc },
 #endif
         { NULL, NULL, NULL }

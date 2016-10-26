@@ -3041,7 +3041,7 @@ static inline uint32_t address_space_ldl_internal(AddressSpace *as, hwaddr addr,
 
         /* I/O case */
         r = memory_region_dispatch_read(mr, addr1, &val, 4, attrs);
-#if defined(TARGET_WORDS_BIGENDIAN)
+#if TARGET_WORDS_BIGENDIAN
         if (endian == DEVICE_LITTLE_ENDIAN) {
             val = bswap32(val);
         }
@@ -3134,7 +3134,7 @@ static inline uint64_t address_space_ldq_internal(AddressSpace *as, hwaddr addr,
 
         /* I/O case */
         r = memory_region_dispatch_read(mr, addr1, &val, 8, attrs);
-#if defined(TARGET_WORDS_BIGENDIAN)
+#if TARGET_WORDS_BIGENDIAN
         if (endian == DEVICE_LITTLE_ENDIAN) {
             val = bswap64(val);
         }
@@ -3247,7 +3247,7 @@ static inline uint32_t address_space_lduw_internal(AddressSpace *as,
 
         /* I/O case */
         r = memory_region_dispatch_read(mr, addr1, &val, 2, attrs);
-#if defined(TARGET_WORDS_BIGENDIAN)
+#if TARGET_WORDS_BIGENDIAN
         if (endian == DEVICE_LITTLE_ENDIAN) {
             val = bswap16(val);
         }
@@ -3383,7 +3383,7 @@ static inline void address_space_stl_internal(AddressSpace *as,
     if (l < 4 || !memory_access_is_direct(mr, true)) {
         release_lock |= prepare_mmio_access(mr);
 
-#if defined(TARGET_WORDS_BIGENDIAN)
+#if TARGET_WORDS_BIGENDIAN
         if (endian == DEVICE_LITTLE_ENDIAN) {
             val = bswap32(val);
         }
@@ -3492,7 +3492,7 @@ static inline void address_space_stw_internal(AddressSpace *as,
     if (l < 2 || !memory_access_is_direct(mr, true)) {
         release_lock |= prepare_mmio_access(mr);
 
-#if defined(TARGET_WORDS_BIGENDIAN)
+#if TARGET_WORDS_BIGENDIAN
         if (endian == DEVICE_LITTLE_ENDIAN) {
             val = bswap16(val);
         }
@@ -3667,7 +3667,7 @@ size_t qemu_target_page_bits(void)
 bool target_words_bigendian(void);
 bool target_words_bigendian(void)
 {
-#if defined(TARGET_WORDS_BIGENDIAN)
+#if TARGET_WORDS_BIGENDIAN
     return true;
 #else
     return false;

@@ -134,7 +134,7 @@ static void mainstone_common_init(MemoryRegion *address_space_mem,
     memory_region_set_readonly(rom, true);
     memory_region_add_subregion(address_space_mem, 0, rom);
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     be = 1;
 #else
     be = 0;

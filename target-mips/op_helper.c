@@ -326,7 +326,7 @@ HELPER_ST_ATOMIC(scd, ld, sd, 0x7)
 #undef HELPER_ST_ATOMIC
 #endif
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
 #define GET_LMASK(v) ((v) & 3)
 #define GET_OFFSET(addr, offset) (addr + (offset))
 #else
@@ -380,7 +380,7 @@ void helper_swr(CPUMIPSState *env, target_ulong arg1, target_ulong arg2,
 /* "half" load and stores.  We must do the memory access inline,
    or fault handling won't work.  */
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
 #define GET_LMASK64(v) ((v) & 7)
 #else
 #define GET_LMASK64(v) (((v) & 7) ^ 7)

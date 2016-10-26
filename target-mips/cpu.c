@@ -113,7 +113,7 @@ static void mips_cpu_reset(CPUState *s)
 }
 
 static void mips_cpu_disas_set_info(CPUState *s, disassemble_info *info) {
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     info->print_insn = print_insn_big_mips;
 #else
     info->print_insn = print_insn_little_mips;

@@ -563,7 +563,7 @@ int kvm_vm_check_extension(KVMState *s, unsigned int extension)
 
 static uint32_t adjust_ioeventfd_endianness(uint32_t val, uint32_t size)
 {
-#if HOST_WORDS_BIGENDIAN != defined(TARGET_WORDS_BIGENDIAN)
+#if HOST_WORDS_BIGENDIAN != TARGET_WORDS_BIGENDIAN
     /* The kernel expects ioeventfd values in HOST_WORDS_BIGENDIAN
      * endianness, but the memory core hands them in target endianness.
      * For example, PPC is always treated as big-endian even if running

@@ -194,7 +194,7 @@ void target_disas(FILE *out, CPUState *cpu, target_ulong code,
     s.info.buffer_length = size;
     s.info.print_address_func = generic_print_address;
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     s.info.endian = BFD_ENDIAN_BIG;
 #else
     s.info.endian = BFD_ENDIAN_LITTLE;
@@ -379,7 +379,7 @@ void monitor_disas(Monitor *mon, CPUState *cpu,
 
     s.info.buffer_vma = pc;
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     s.info.endian = BFD_ENDIAN_BIG;
 #else
     s.info.endian = BFD_ENDIAN_LITTLE;

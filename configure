@@ -5912,7 +5912,9 @@ case "$target_name" in
     fi
 esac
 if test "$target_bigendian" = "yes" ; then
-  echo "TARGET_WORDS_BIGENDIAN=y" >> $config_target_mak
+  echo "TARGET_WORDS_BIGENDIAN=1" >> $config_target_mak
+else
+  echo "TARGET_WORDS_BIGENDIAN=0" >> $config_target_mak
 fi
 if test "$target_softmmu" = "yes" ; then
   echo "CONFIG_SOFTMMU=y" >> $config_target_mak

@@ -277,7 +277,7 @@ typedef enum TCGMemOp {
     MO_LE    = 0,
     MO_BE    = MO_BSWAP,
 #endif
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     MO_TE    = MO_BE,
 #else
     MO_TE    = MO_LE,
@@ -1148,7 +1148,7 @@ uint64_t helper_be_ldq_cmmu(CPUArchState *env, target_ulong addr,
                             TCGMemOpIdx oi, uintptr_t retaddr);
 
 /* Temporary aliases until backends are converted.  */
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
 # define helper_ret_ldsw_mmu  helper_be_ldsw_mmu
 # define helper_ret_lduw_mmu  helper_be_lduw_mmu
 # define helper_ret_ldsl_mmu  helper_be_ldsl_mmu

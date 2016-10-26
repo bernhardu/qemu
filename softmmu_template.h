@@ -84,7 +84,7 @@
 # define BSWAP(X)  (X)
 #endif
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
 # define TGT_BE(X)  (X)
 # define TGT_LE(X)  BSWAP(X)
 #else
@@ -108,7 +108,7 @@
 # define helper_be_st_name  glue(glue(helper_be_st, SUFFIX), MMUSUFFIX)
 #endif
 
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
 # define helper_te_ld_name  helper_be_ld_name
 # define helper_te_st_name  helper_be_st_name
 #else

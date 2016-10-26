@@ -81,7 +81,7 @@ static void glue(draw_line32_, PIXEL_NAME)(
 
     do {
 	ldub_p(s);
-#if defined(TARGET_WORDS_BIGENDIAN)
+#if TARGET_WORDS_BIGENDIAN
         r = s[1];
         g = s[2];
         b = s[3];

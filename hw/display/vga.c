@@ -2205,7 +2205,7 @@ void vga_common_init(VGACommonState *s, Object *obj, bool global_vmstate)
      * into a device attribute set by the machine/platform to remove
      * all target endian dependencies from this file.
      */
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     s->default_endian_fb = true;
 #else
     s->default_endian_fb = false;

@@ -208,7 +208,7 @@ static const MemoryRegionOps lx60_io_ops = {
 
 static void lx_init(const LxBoardDesc *board, MachineState *machine)
 {
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
     int be = 1;
 #else
     int be = 0;
@@ -376,7 +376,7 @@ static void lx_init(const LxBoardDesc *board, MachineState *machine)
         }
         if (entry_point != env->pc) {
             static const uint8_t jx_a0[] = {
-#ifdef TARGET_WORDS_BIGENDIAN
+#if TARGET_WORDS_BIGENDIAN
                 0x0a, 0, 0,
 #else
                 0xa0, 0, 0,
