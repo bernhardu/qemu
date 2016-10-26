@@ -38,12 +38,6 @@ typedef enum {
     AUD_FMT_S32
 } audfmt_e;
 
-#if HOST_WORDS_BIGENDIAN
-#define AUDIO_HOST_ENDIANNESS 1
-#else
-#define AUDIO_HOST_ENDIANNESS 0
-#endif
-
 struct audsettings {
     int freq;
     int nchannels;

@@ -37,12 +37,6 @@
 #define ldebug(...)
 #endif
 
-#if HOST_WORDS_BIGENDIAN
-#define GUS_ENDIANNESS 1
-#else
-#define GUS_ENDIANNESS 0
-#endif
-
 #define TYPE_GUS "gus"
 #define GUS(obj) OBJECT_CHECK (GUSState, (obj), TYPE_GUS)
 
@@ -246,7 +240,7 @@ static void gus_realizefn (DeviceState *dev, Error **errp)
     as.freq = s->freq;
     as.nchannels = 2;
     as.fmt = AUD_FMT_S16;
-    as.endianness = GUS_ENDIANNESS;
+    as.endianness = HOST_WORDS_BIGENDIAN;
 
     s->voice = AUD_open_out (
         &s->card,

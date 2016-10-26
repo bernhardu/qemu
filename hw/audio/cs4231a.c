@@ -298,7 +298,7 @@ static void cs_reset_voices (CSState *s, uint32_t val)
         s->tab = ALawDecompressTable;
     x_law:
         as.fmt = AUD_FMT_S16;
-        as.endianness = AUDIO_HOST_ENDIANNESS;
+        as.endianness = HOST_WORDS_BIGENDIAN;
         s->shift = as.nchannels == 2;
         break;
 

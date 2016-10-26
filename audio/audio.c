@@ -78,7 +78,7 @@ static struct {
             .freq = 44100,
             .nchannels = 2,
             .fmt = AUD_FMT_S16,
-            .endianness =  AUDIO_HOST_ENDIANNESS,
+            .endianness = HOST_WORDS_BIGENDIAN,
         }
     },
 
@@ -90,7 +90,7 @@ static struct {
             .freq = 44100,
             .nchannels = 2,
             .fmt = AUD_FMT_S16,
-            .endianness = AUDIO_HOST_ENDIANNESS,
+            .endianness = HOST_WORDS_BIGENDIAN,
         }
     },
 
@@ -595,7 +595,7 @@ static int audio_pcm_info_eq (struct audio_pcm_info *info, struct audsettings *a
         && info->nchannels == as->nchannels
         && info->sign == sign
         && info->bits == bits
-        && info->swap_endianness == (as->endianness != AUDIO_HOST_ENDIANNESS);
+        && info->swap_endianness == (as->endianness != HOST_WORDS_BIGENDIAN);
 }
 
 void audio_pcm_init_info (struct audio_pcm_info *info, struct audsettings *as)
@@ -630,7 +630,7 @@ void audio_pcm_init_info (struct audio_pcm_info *info, struct audsettings *as)
     info->shift = (as->nchannels == 2) + shift;
     info->align = (1 << info->shift) - 1;
     info->bytes_per_second = info->freq << info->shift;
-    info->swap_endianness = (as->endianness != AUDIO_HOST_ENDIANNESS);
+    info->swap_endianness = (as->endianness != HOST_WORDS_BIGENDIAN);
 }
 
 void audio_pcm_info_clear_buf (struct audio_pcm_info *info, void *buf, int len)
