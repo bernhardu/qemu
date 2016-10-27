@@ -50,11 +50,7 @@
 #else
 # define ELF_CLASS  ELFCLASS64
 #endif
-#if HOST_WORDS_BIGENDIAN
-# define ELF_DATA   ELFDATA2MSB
-#else
-# define ELF_DATA   ELFDATA2LSB
-#endif
+#define ELF_DATA   (HOST_WORDS_BIGENDIAN ? ELFDATA2MSB : ELFDATA2LSB)
 
 #include "elf.h"
 #include "exec/log.h"
@@ -523,10 +519,7 @@ int tcg_global_mem_new_internal(TCGType type, TCGv_ptr base,
     TCGContext *s = &tcg_ctx;
     TCGTemp *base_ts = &s->temps[GET_TCGV_PTR(base)];
     TCGTemp *ts = tcg_global_alloc(s);
-    int indirect_reg = 0, bigendian = 0;
-#if HOST_WORDS_BIGENDIAN
-    bigendian = 1;
-#endif
+    int indirect_reg = 0;
 
     if (!base_ts->fixed_reg) {
         /* We do not support double-indirect registers.  */
@@ -546,7 +539,7 @@ int tcg_global_mem_new_internal(TCGType type, TCGv_ptr base,
         ts->indirect_reg = indirect_reg;
         ts->mem_allocated = 1;
         ts->mem_base = base_ts;
-        ts->mem_offset = offset + bigendian * 4;
+        ts->mem_offset = offset + HOST_WORDS_BIGENDIAN * 4;
         pstrcpy(buf, sizeof(buf), name);
         pstrcat(buf, sizeof(buf), "_0");
         ts->name = strdup(buf);
@@ -557,7 +550,7 @@ int tcg_global_mem_new_internal(TCGType type, TCGv_ptr base,
         ts2->indirect_reg = indirect_reg;
         ts2->mem_allocated = 1;
         ts2->mem_base = base_ts;
-        ts2->mem_offset = offset + (1 - bigendian) * 4;
+        ts2->mem_offset = offset + (!HOST_WORDS_BIGENDIAN) * 4;
         pstrcpy(buf, sizeof(buf), name);
         pstrcat(buf, sizeof(buf), "_1");
         ts2->name = strdup(buf);
@@ -799,13 +792,8 @@ void tcg_gen_callN(TCGContext *s, void *func, TCGArg ret,
         }
 #else
         if (TCG_TARGET_REG_BITS < 64 && (sizemask & 1)) {
-#if HOST_WORDS_BIGENDIAN
-            s->gen_opparam_buf[pi++] = ret + 1;
-            s->gen_opparam_buf[pi++] = ret;
-#else
-            s->gen_opparam_buf[pi++] = ret;
-            s->gen_opparam_buf[pi++] = ret + 1;
-#endif
+            s->gen_opparam_buf[pi++] = ret + HOST_WORDS_BIGENDIAN;
+            s->gen_opparam_buf[pi++] = ret + !HOST_WORDS_BIGENDIAN;
             nb_rets = 2;
         } else {
             s->gen_opparam_buf[pi++] = ret;

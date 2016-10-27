@@ -270,18 +270,9 @@ typedef enum TCGMemOp {
     MO_SIGN  = 4,   /* Sign-extended, otherwise zero-extended.  */
 
     MO_BSWAP = 8,   /* Host reverse endian.  */
-#if HOST_WORDS_BIGENDIAN
-    MO_LE    = MO_BSWAP,
-    MO_BE    = 0,
-#else
-    MO_LE    = 0,
-    MO_BE    = MO_BSWAP,
-#endif
-#if TARGET_WORDS_BIGENDIAN
-    MO_TE    = MO_BE,
-#else
-    MO_TE    = MO_LE,
-#endif
+    MO_LE    = HOST_WORDS_BIGENDIAN ? MO_BSWAP : 0,
+    MO_BE    = HOST_WORDS_BIGENDIAN ? 0 : MO_BSWAP,
+    MO_TE    = TARGET_WORDS_BIGENDIAN ? MO_BE : MO_LE,
 
     /* MO_UNALN accesses are never checked for alignment.
      * MO_ALIGN accesses will result in a call to the CPU's

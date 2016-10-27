@@ -829,26 +829,20 @@ void tcg_gen_ld32s_i64(TCGv_i64 ret, TCGv_ptr arg2, tcg_target_long offset)
 
 void tcg_gen_ld_i64(TCGv_i64 ret, TCGv_ptr arg2, tcg_target_long offset)
 {
+    TCGv_i32 t0 = HOST_WORDS_BIGENDIAN ? TCGV_HIGH(ret) : TCGV_LOW(ret);
+    TCGv_i32 t1 = HOST_WORDS_BIGENDIAN ? TCGV_LOW(ret) : TCGV_HIGH(ret);
     /* Since arg2 and ret have different types,
        they cannot be the same temporary */
-#if HOST_WORDS_BIGENDIAN
-    tcg_gen_ld_i32(TCGV_HIGH(ret), arg2, offset);
-    tcg_gen_ld_i32(TCGV_LOW(ret), arg2, offset + 4);
-#else
-    tcg_gen_ld_i32(TCGV_LOW(ret), arg2, offset);
-    tcg_gen_ld_i32(TCGV_HIGH(ret), arg2, offset + 4);
-#endif
+    tcg_gen_ld_i32(t0, arg2, offset);
+    tcg_gen_ld_i32(t1, arg2, offset + 4);
 }
 
 void tcg_gen_st_i64(TCGv_i64 arg1, TCGv_ptr arg2, tcg_target_long offset)
 {
-#if HOST_WORDS_BIGENDIAN
-    tcg_gen_st_i32(TCGV_HIGH(arg1), arg2, offset);
-    tcg_gen_st_i32(TCGV_LOW(arg1), arg2, offset + 4);
-#else
-    tcg_gen_st_i32(TCGV_LOW(arg1), arg2, offset);
-    tcg_gen_st_i32(TCGV_HIGH(arg1), arg2, offset + 4);
-#endif
+    TCGv_i32 t0 = HOST_WORDS_BIGENDIAN ? TCGV_HIGH(ret) : TCGV_LOW(ret);
+    TCGv_i32 t1 = HOST_WORDS_BIGENDIAN ? TCGV_LOW(ret) : TCGV_HIGH(ret);
+    tcg_gen_st_i32(t0, arg2, offset);
+    tcg_gen_st_i32(t1, arg2, offset + 4);
 }
 
 void tcg_gen_and_i64(TCGv_i64 ret, TCGv_i64 arg1, TCGv_i64 arg2)
