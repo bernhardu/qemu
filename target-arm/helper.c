@@ -5281,11 +5281,9 @@ static void add_cpreg_to_hashtable(ARMCPU *cpu, const ARMCPRegInfo *r,
                 r2->cp = 15;
             }
 
-#if HOST_WORDS_BIGENDIAN
-            if (r2->fieldoffset) {
+            if (HOST_WORDS_BIGENDIAN && r2->fieldoffset) {
                 r2->fieldoffset += sizeof(uint32_t);
             }
-#endif
         }
     }
     if (state == ARM_CP_STATE_AA64) {

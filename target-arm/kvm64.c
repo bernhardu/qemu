@@ -682,13 +682,8 @@ int kvm_arch_put_registers(CPUState *cs, int level)
     for (i = 0; i < 32; i++) {
         int rd = i << 1;
         uint64_t fp_val[2];
-#if HOST_WORDS_BIGENDIAN
-        fp_val[0] = env->vfp.regs[rd + 1];
-        fp_val[1] = env->vfp.regs[rd];
-#else
-        fp_val[1] = env->vfp.regs[rd + 1];
-        fp_val[0] = env->vfp.regs[rd];
-#endif
+        fp_val[!HOST_WORDS_BIGENDIAN] = env->vfp.regs[rd + 1];
+        fp_val[HOST_WORDS_BIGENDIAN] = env->vfp.regs[rd];
         reg.id = AARCH64_SIMD_CORE_REG(fp_regs.vregs[i]);
         reg.addr = (uintptr_t)(&fp_val);
         ret = kvm_vcpu_ioctl(cs, KVM_SET_ONE_REG, &reg);
@@ -829,13 +824,8 @@ int kvm_arch_get_registers(CPUState *cs)
             return ret;
         } else {
             int rd = i << 1;
-#if HOST_WORDS_BIGENDIAN
-            env->vfp.regs[rd + 1] = fp_val[0];
-            env->vfp.regs[rd] = fp_val[1];
-#else
-            env->vfp.regs[rd + 1] = fp_val[1];
-            env->vfp.regs[rd] = fp_val[0];
-#endif
+            env->vfp.regs[rd + 1] = fp_val[!HOST_WORDS_BIGENDIAN];
+            env->vfp.regs[rd] = fp_val[HOST_WORDS_BIGENDIAN];
         }
     }
 

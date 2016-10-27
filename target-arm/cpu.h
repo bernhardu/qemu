@@ -76,13 +76,10 @@
  * therefore useful to be able to pass TCG the offset of the least
  * significant half of a uint64_t struct member.
  */
-#if HOST_WORDS_BIGENDIAN
-#define offsetoflow32(S, M) (offsetof(S, M) + sizeof(uint32_t))
-#define offsetofhigh32(S, M) offsetof(S, M)
-#else
-#define offsetoflow32(S, M) offsetof(S, M)
-#define offsetofhigh32(S, M) (offsetof(S, M) + sizeof(uint32_t))
-#endif
+#define offsetoflow32(S, M) \
+    (offsetof(S, M) + sizeof(uint32_t) * HOST_WORDS_BIGENDIAN)
+#define offsetofhigh32(S, M) \
+    (offsetof(S, M) + sizeof(uint32_t) * !HOST_WORDS_BIGENDIAN)
 
 /* Meanings of the ARMCPU object's four inbound GPIO lines */
 #define ARM_CPU_IRQ 0
