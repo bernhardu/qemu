@@ -337,17 +337,10 @@ typedef struct XtensaConfigList {
     struct XtensaConfigList *next;
 } XtensaConfigList;
 
-#if HOST_WORDS_BIGENDIAN
 enum {
-    FP_F32_HIGH,
-    FP_F32_LOW,
+    FP_F32_HIGH = !HOST_WORDS_BIGENDIAN,
+    FP_F32_LOW = HOST_WORDS_BIGENDIAN,
 };
-#else
-enum {
-    FP_F32_LOW,
-    FP_F32_HIGH,
-};
-#endif
 
 typedef struct CPUXtensaState {
     const XtensaConfig *config;
