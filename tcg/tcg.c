@@ -1024,13 +1024,14 @@ void tcg_dump_ops(TCGContext *s)
                             args[nb_oargs + nb_iargs + 1], nb_oargs);
             for (i = 0; i < nb_oargs; i++) {
                 col += qemu_log(",%s", tcg_get_arg_str_idx(s, buf, sizeof(buf),
-                                                           args[i]));
+                                                           arg_index(args[i])));
             }
             for (i = 0; i < nb_iargs; i++) {
                 TCGArg arg = args[nb_oargs + i];
                 const char *t = "<dummy>";
                 if (arg != TCG_CALL_DUMMY_ARG) {
-                    t = tcg_get_arg_str_idx(s, buf, sizeof(buf), arg);
+                    t = tcg_get_arg_str_idx(s, buf, sizeof(buf),
+                                            arg_index(arg));
                 }
                 col += qemu_log(",%s", t);
             }
@@ -1047,14 +1048,14 @@ void tcg_dump_ops(TCGContext *s)
                     col += qemu_log(",");
                 }
                 col += qemu_log("%s", tcg_get_arg_str_idx(s, buf, sizeof(buf),
-                                                          args[k++]));
+                                                          arg_index(args[k++])));
             }
             for (i = 0; i < nb_iargs; i++) {
                 if (k != 0) {
                     col += qemu_log(",");
                 }
                 col += qemu_log("%s", tcg_get_arg_str_idx(s, buf, sizeof(buf),
-                                                          args[k++]));
+                                                          arg_index(args[k++])));
             }
             switch (c) {
             case INDEX_op_brcond_i32:
