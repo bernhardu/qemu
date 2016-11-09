@@ -523,7 +523,7 @@ TCGTemp *tcg_global_mem_new_internal(TCGType type, TCGv_ptr base,
                                      intptr_t offset, const char *name)
 {
     TCGContext *s = &tcg_ctx;
-    TCGTemp *base_ts = &s->temps[GET_TCGV_PTR(base)];
+    TCGTemp *base_ts = &base->impl;
     TCGTemp *ts = tcg_global_alloc(s);
     int indirect_reg = 0, bigendian = 0;
 #ifdef HOST_WORDS_BIGENDIAN
@@ -2107,7 +2107,7 @@ static void tcg_reg_alloc_do_movi(TCGContext *s, TCGTemp *ots,
 static void tcg_reg_alloc_movi(TCGContext *s, const TCGArg *args,
                                TCGLifeData arg_life)
 {
-    TCGTemp *ots = &s->temps[args[0]];
+    TCGTemp *ots = arg_temp(args[0]);
     tcg_target_ulong val = args[1];
 
     tcg_reg_alloc_do_movi(s, ots, val, arg_life);
@@ -2121,8 +2121,8 @@ static void tcg_reg_alloc_mov(TCGContext *s, const TCGOpDef *def,
     TCGType otype, itype;
 
     tcg_regset_set(allocated_regs, s->reserved_regs);
-    ots = &s->temps[args[0]];
-    ts = &s->temps[args[1]];
+    ots = arg_temp(args[0]);
+    ts = arg_temp(args[1]);
 
     /* Note that otype != itype for no-op truncation.  */
     otype = ots->type;
@@ -2213,7 +2213,7 @@ static void tcg_reg_alloc_op(TCGContext *s,
         i = def->sorted_args[nb_oargs + k];
         arg = args[i];
         arg_ct = &def->args_ct[i];
-        ts = &s->temps[arg];
+        ts = arg_temp(arg);
 
         if (ts->val_type == TEMP_VAL_CONST
             && tcg_target_const_match(ts->val, ts->type, arg_ct)) {
@@ -2270,7 +2270,7 @@ static void tcg_reg_alloc_op(TCGContext *s,
     /* mark dead temporaries and free the associated registers */
     for (i = nb_oargs; i < nb_oargs + nb_iargs; i++) {
         if (IS_DEAD_ARG(i)) {
-            temp_dead(s, &s->temps[args[i]]);
+            temp_dead(s, arg_temp(args[i]));
         }
     }
 
@@ -2297,7 +2297,7 @@ static void tcg_reg_alloc_op(TCGContext *s,
             i = def->sorted_args[k];
             arg = args[i];
             arg_ct = &def->args_ct[i];
-            ts = &s->temps[arg];
+            ts = arg_temp(arg);
             if (arg_ct->ct & TCG_CT_ALIAS) {
                 reg = new_args[arg_ct->alias_index];
             } else {
@@ -2333,7 +2333,7 @@ static void tcg_reg_alloc_op(TCGContext *s,
     
     /* move the outputs in the correct register if needed */
     for(i = 0; i < nb_oargs; i++) {
-        ts = &s->temps[args[i]];
+        ts = arg_temp(args[i]);
         reg = new_args[i];
         if (ts->fixed_reg && ts->reg != reg) {
             tcg_out_mov(s, ts->type, ts->reg, reg);
@@ -2391,7 +2391,7 @@ static void tcg_reg_alloc_call(TCGContext *s, int nb_oargs, int nb_iargs,
         stack_offset -= sizeof(tcg_target_long);
 #endif
         if (arg != TCG_CALL_DUMMY_ARG) {
-            ts = &s->temps[arg];
+            ts = arg_temp(arg);
             temp_load(s, ts, tcg_target_available_regs[ts->type],
                       s->reserved_regs);
             tcg_out_st(s, ts->type, ts->reg, TCG_REG_CALL_STACK, stack_offset);
@@ -2406,7 +2406,7 @@ static void tcg_reg_alloc_call(TCGContext *s, int nb_oargs, int nb_iargs,
     for(i = 0; i < nb_regs; i++) {
         arg = args[nb_oargs + i];
         if (arg != TCG_CALL_DUMMY_ARG) {
-            ts = &s->temps[arg];
+            ts = arg_temp(arg);
             reg = tcg_target_call_iarg_regs[i];
             tcg_reg_free(s, reg, allocated_regs);
 
@@ -2429,7 +2429,7 @@ static void tcg_reg_alloc_call(TCGContext *s, int nb_oargs, int nb_iargs,
     /* mark dead temporaries and free the associated registers */
     for(i = nb_oargs; i < nb_iargs + nb_oargs; i++) {
         if (IS_DEAD_ARG(i)) {
-            temp_dead(s, &s->temps[args[i]]);
+            temp_dead(s, arg_temp(args[i]));
         }
     }
     
@@ -2455,7 +2455,7 @@ static void tcg_reg_alloc_call(TCGContext *s, int nb_oargs, int nb_iargs,
     /* assign output registers and emit moves if needed */
     for(i = 0; i < nb_oargs; i++) {
         arg = args[i];
-        ts = &s->temps[arg];
+        ts = arg_temp(arg);
         reg = tcg_target_call_oarg_regs[i];
         tcg_debug_assert(s->reg_to_temp[reg] == NULL);
 
@@ -2627,7 +2627,7 @@ int tcg_gen_code(TCGContext *s, TranslationBlock *tb)
             }
             break;
         case INDEX_op_discard:
-            temp_dead(s, &s->temps[args[0]]);
+            temp_dead(s, arg_temp(args[0]));
             break;
         case INDEX_op_set_label:
             tcg_reg_alloc_bb_end(s, s->reserved_regs);
