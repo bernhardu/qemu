@@ -1865,10 +1865,8 @@ static void check_regs(TCGContext *s)
 }
 #endif
 
-static void temp_allocate_frame(TCGContext *s, int temp)
+static void temp_allocate_frame(TCGContext *s, TCGTemp *ts)
 {
-    TCGTemp *ts;
-    ts = &s->temps[temp];
 #if !(defined(__sparc__) && TCG_TARGET_REG_BITS == 64)
     /* Sparc64 stack is accessed with offset of 2047 */
     s->current_frame_offset = (s->current_frame_offset +
@@ -1921,7 +1919,7 @@ static void temp_sync(TCGContext *s, TCGTemp *ts,
     }
     if (!ts->mem_coherent) {
         if (!ts->mem_allocated) {
-            temp_allocate_frame(s, temp_idx(ts));
+            temp_allocate_frame(s, ts);
         }
         switch (ts->val_type) {
         case TEMP_VAL_CONST:
@@ -2152,7 +2150,7 @@ static void tcg_reg_alloc_mov(TCGContext *s, const TCGOpDef *def,
            liveness analysis disabled). */
         tcg_debug_assert(NEED_SYNC_ARG(0));
         if (!ots->mem_allocated) {
-            temp_allocate_frame(s, args[0]);
+            temp_allocate_frame(s, ots);
         }
         tcg_out_st(s, otype, ts->reg, ots->mem_base->reg, ots->mem_offset);
         if (IS_DEAD_ARG(1)) {
