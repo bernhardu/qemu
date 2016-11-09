@@ -475,7 +475,7 @@ typedef TCGv_ptr TCGv_env;
 #define TCG_CALL_NO_WG_SE       (TCG_CALL_NO_WG | TCG_CALL_NO_SE)
 
 /* used to align parameters */
-#define TCG_CALL_DUMMY_ARG      ((TCGArg)(-1))
+#define TCG_CALL_DUMMY_ARG      0
 
 typedef enum {
     /* Used to indicate the type of accesses on which ordering

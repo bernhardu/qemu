@@ -1415,7 +1415,6 @@ static void liveness_pass_1(TCGContext *s)
         bool have_opc_new2;
         TCGLifeData arg_life = 0;
         TCGTemp *arg_ts;
-        TCGArg arg_idx;
 
         TCGOp * const op = &s->gen_op_buf[oi];
         TCGArg * const args = &s->gen_opparam_buf[op->args];
@@ -1472,19 +1471,15 @@ static void liveness_pass_1(TCGContext *s)
 
                     /* record arguments that die in this helper */
                     for (i = nb_oargs; i < nb_iargs + nb_oargs; i++) {
-                        arg_idx = arg_index(args[i]);
-                        if (arg_idx != TCG_CALL_DUMMY_ARG) {
-                            arg_ts = arg_temp(args[i]);
-                            if (arg_ts->state & TS_DEAD) {
-                                arg_life |= DEAD_ARG << i;
-                            }
+                        arg_ts = arg_temp(args[i]);
+                        if (arg_ts && (arg_ts->state & TS_DEAD)) {
+                            arg_life |= DEAD_ARG << i;
                         }
                     }
                     /* input arguments are live for preceding opcodes */
                     for (i = nb_oargs; i < nb_iargs + nb_oargs; i++) {
-                        arg_idx = arg_index(args[i]);
-                        if (arg_idx != TCG_CALL_DUMMY_ARG) {
-                            arg_ts = arg_temp(args[i]);
+                        arg_ts = arg_temp(args[i]);
+                        if (arg_ts) {
                             arg_ts->state &= ~TS_DEAD;
                         }
                     }
@@ -1690,12 +1685,10 @@ static bool liveness_pass_2(TCGContext *s)
 
         /* Make sure that input arguments are available.  */
         for (i = nb_oargs; i < nb_iargs + nb_oargs; i++) {
-            arg_idx = arg_index(args[i]);
-            /* Note this unsigned test catches TCG_CALL_ARG_DUMMY too.  */
-            if (arg_idx < nb_globals) {
-                arg_ts = arg_temp(args[i]);
+            arg_ts = arg_temp(args[i]);
+            if (arg_ts) {
                 dir_ts = arg_ts->state_ptr;
-                if (dir_ts != 0 && arg_ts->state == TS_DEAD) {
+                if (dir_ts && arg_ts->state == TS_DEAD) {
                     TCGOpcode lopc = (arg_ts->type == TCG_TYPE_I32
                                       ? INDEX_op_ld_i32
                                       : INDEX_op_ld_i64);
@@ -1716,12 +1709,10 @@ static bool liveness_pass_2(TCGContext *s)
            No action is required except keeping temp_state up to date
            so that we reload when needed.  */
         for (i = nb_oargs; i < nb_iargs + nb_oargs; i++) {
-            arg_idx = arg_index(args[i]);
-            /* Note this unsigned test catches TCG_CALL_ARG_DUMMY too.  */
-            if (arg_idx < nb_globals) {
-                arg_ts = arg_temp(args[i]);
+            arg_ts = arg_temp(args[i]);
+            if (arg_ts) {
                 dir_ts = arg_ts->state_ptr;
-                if (dir_ts != 0) {
+                if (dir_ts) {
                     args[i] = temp_idx(dir_ts);
                     changes = true;
                     if (IS_DEAD_ARG(i)) {
@@ -2403,9 +2394,8 @@ static void tcg_reg_alloc_call(TCGContext *s, int nb_oargs, int nb_iargs,
     /* assign input registers */
     tcg_regset_set(allocated_regs, s->reserved_regs);
     for(i = 0; i < nb_regs; i++) {
-        arg = args[nb_oargs + i];
-        if (arg != TCG_CALL_DUMMY_ARG) {
-            ts = arg_temp(arg);
+        ts = arg_temp(args[nb_oargs + i]);
+        if (ts) {
             reg = tcg_target_call_iarg_regs[i];
             tcg_reg_free(s, reg, allocated_regs);
 
