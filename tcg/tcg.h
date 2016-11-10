@@ -697,44 +697,44 @@ static inline uintptr_t temp_idx(TCGTemp *ts)
     return n;
 }
 
-static inline size_t arg_index(TCGArg a)
-{
-    return a;
-}
-
 static inline TCGTemp *arg_temp(TCGArg a)
 {
-    return &tcg_ctx.temps[a];
+    return (TCGTemp *)(uintptr_t)a;
+}
+
+static inline size_t arg_index(TCGArg a)
+{
+    return temp_idx(arg_temp(a));
 }
 
 static inline TCGv_i32 QEMU_ARTIFICIAL MAKE_TCGV_I32(uintptr_t i)
 {
-    return (TCGv_i32)&tcg_ctx.temps[i];
+    return (TCGv_i32)i;
 }
 
 static inline TCGv_i64 QEMU_ARTIFICIAL MAKE_TCGV_I64(uintptr_t i)
 {
-    return (TCGv_i64)&tcg_ctx.temps[i];
+    return (TCGv_i64)i;
 }
 
 static inline TCGv_ptr QEMU_ARTIFICIAL MAKE_TCGV_PTR(uintptr_t i)
 {
-    return (TCGv_ptr)&tcg_ctx.temps[i];
+    return (TCGv_ptr)i;
 }
 
 static inline uintptr_t QEMU_ARTIFICIAL GET_TCGV_I32(TCGv_i32 t)
 {
-    return temp_idx((TCGTemp *)t);
+    return (uintptr_t)t;
 }
 
 static inline uintptr_t QEMU_ARTIFICIAL GET_TCGV_I64(TCGv_i64 t)
 {
-    return temp_idx((TCGTemp *)t);
+    return (uintptr_t)t;
 }
 
 static inline uintptr_t QEMU_ARTIFICIAL GET_TCGV_PTR(TCGv_ptr t)
 {
-    return temp_idx((TCGTemp *)t);
+    return (uintptr_t)t;
 }
 
 static inline void tcg_set_insn_param(int op_idx, int arg, TCGArg v)

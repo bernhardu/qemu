@@ -33,19 +33,24 @@
         glue(glue(case INDEX_op_, x), _i64)
 
 struct tcg_temp_info {
-    bool is_const;
-    uint16_t prev_copy;
-    uint16_t next_copy;
+    TCGTemp *prev_copy;
+    TCGTemp *next_copy;
     tcg_target_ulong val;
     tcg_target_ulong mask;
+    bool is_const;
 };
 
 static struct tcg_temp_info temps[TCG_MAX_TEMPS];
 static TCGTempSet temps_used;
 
+static inline struct tcg_temp_info *ts_info(TCGTemp *ts)
+{
+    return ts->state_ptr;
+}
+
 static inline struct tcg_temp_info *temp_info(TCGArg arg)
 {
-    return &temps[arg];
+    return ts_info(arg_temp(arg));
 }
 
 static inline bool temp_is_const(TCGArg arg)
@@ -55,20 +60,20 @@ static inline bool temp_is_const(TCGArg arg)
 
 static inline bool temp_is_copy(TCGArg arg)
 {
-    return temp_info(arg)->next_copy != arg;
+    return temp_info(arg)->next_copy != arg_temp(arg);
 }
 
 /* Reset TEMP's state, possibly removing the temp for the list of copies.  */
-static void reset_temp(TCGArg temp)
+static void reset_temp(TCGTemp *ts)
 {
-    struct tcg_temp_info *ti = temp_info(temp);
-    struct tcg_temp_info *pi = temp_info(ti->prev_copy);
-    struct tcg_temp_info *ni = temp_info(ti->next_copy);
+    struct tcg_temp_info *ti = ts_info(ts);
+    struct tcg_temp_info *pi = ts_info(ti->prev_copy);
+    struct tcg_temp_info *ni = ts_info(ti->next_copy);
 
     ni->prev_copy = ti->prev_copy;
     pi->next_copy = ti->next_copy;
-    ti->next_copy = temp;
-    ti->prev_copy = temp;
+    ti->next_copy = ts;
+    ti->prev_copy = ts;
     ti->is_const = false;
     ti->mask = -1;
 }
@@ -82,13 +87,16 @@ static void reset_all_temps(int nb_temps)
 /* Initialize and activate a temporary.  */
 static void init_temp_info(TCGArg temp)
 {
-    if (!test_bit(temp, temps_used.l)) {
-        struct tcg_temp_info *ti = temp_info(temp);
-        ti->next_copy = temp;
-        ti->prev_copy = temp;
+    size_t idx = arg_index(temp);
+    if (!test_bit(idx, temps_used.l)) {
+        TCGTemp *ts = arg_temp(temp);
+        struct tcg_temp_info *ti = &temps[idx];
+        ts->state_ptr = ti;
+        ti->next_copy = ts;
+        ti->prev_copy = ts;
         ti->is_const = false;
         ti->mask = -1;
-        set_bit(temp, temps_used.l);
+        set_bit(idx, temps_used.l);
     }
 }
 
@@ -128,27 +136,26 @@ static TCGOpcode op_to_movi(TCGOpcode op)
 
 static TCGArg find_better_copy(TCGContext *s, TCGArg temp)
 {
-    TCGArg i;
+    TCGTemp *ts = arg_temp(temp);
+    TCGTemp *i;
 
     /* If this is already a global, we can't do better. */
-    if (temp < s->nb_globals) {
+    if (ts->temp_global) {
         return temp;
     }
 
     /* Search for a global first. */
-    for (i = temp_info(temp)->next_copy; i != temp;
-         i = temp_info(i)->next_copy) {
-        if (i < s->nb_globals) {
-            return i;
+    for (i = ts_info(ts)->next_copy; i != ts; i = ts_info(i)->next_copy) {
+        if (i->temp_global) {
+            return (uintptr_t)i;
         }
     }
 
     /* If it is a temp, search for a temp local. */
-    if (!s->temps[temp].temp_local) {
-        for (i = temp_info(temp)->next_copy; i != temp;
-             i = temp_info(i)->next_copy) {
-            if (s->temps[i].temp_local) {
-                return i;
+    if (!ts->temp_local) {
+        for (i = ts_info(ts)->next_copy; i != ts; i = ts_info(i)->next_copy) {
+            if (i->temp_local) {
+                return (uintptr_t)i;
             }
         }
     }
@@ -159,7 +166,9 @@ static TCGArg find_better_copy(TCGContext *s, TCGArg temp)
 
 static bool temps_are_copies(TCGArg arg1, TCGArg arg2)
 {
-    TCGArg i;
+    TCGTemp *t1 = arg_temp(arg1);
+    TCGTemp *t2 = arg_temp(arg2);
+    TCGTemp *i;
 
     if (arg1 == arg2) {
         return true;
@@ -169,9 +178,8 @@ static bool temps_are_copies(TCGArg arg1, TCGArg arg2)
         return false;
     }
 
-    for (i = temp_info(arg1)->next_copy; i != arg1;
-         i = temp_info(i)->next_copy) {
-        if (i == arg2) {
+    for (i = ts_info(t1)->next_copy; i != t1; i = ts_info(i)->next_copy) {
+        if (i == t2) {
             return true;
         }
     }
@@ -184,11 +192,12 @@ static void tcg_opt_gen_movi(TCGContext *s, TCGOp *op, TCGArg *args,
 {
     TCGOpcode new_op = op_to_movi(op->opc);
     tcg_target_ulong mask;
-    struct tcg_temp_info *di = temp_info(dst);
+    TCGTemp *ds = arg_temp(dst);
+    struct tcg_temp_info *di = ts_info(ds);
 
     op->opc = new_op;
 
-    reset_temp(dst);
+    reset_temp(ds);
     di->is_const = true;
     di->val = val;
     mask = val;
@@ -210,14 +219,16 @@ static void tcg_opt_gen_mov(TCGContext *s, TCGOp *op, TCGArg *args,
         return;
     }
 
-    struct tcg_temp_info *di = temp_info(dst);
-    struct tcg_temp_info *si = temp_info(src);
+    TCGTemp *ds = arg_temp(dst);
+    TCGTemp *ss = arg_temp(src);
+    struct tcg_temp_info *di = ts_info(ds);
+    struct tcg_temp_info *si = ts_info(ss);
     TCGOpcode new_op = op_to_mov(op->opc);
     tcg_target_ulong mask;
 
     op->opc = new_op;
 
-    reset_temp(dst);
+    reset_temp(ds);
     mask = si->mask;
     if (TCG_TARGET_REG_BITS > 32 && new_op == INDEX_op_mov_i32) {
         /* High bits of the destination are now garbage.  */
@@ -225,11 +236,11 @@ static void tcg_opt_gen_mov(TCGContext *s, TCGOp *op, TCGArg *args,
     }
     di->mask = mask;
 
-    if (s->temps[src].type == s->temps[dst].type) {
+    if (ss->type == ds->type) {
         di->next_copy = si->next_copy;
-        di->prev_copy = src;
-        temp_info(di->next_copy)->prev_copy = dst;
-        si->next_copy = dst;
+        di->prev_copy = ss;
+        ts_info(di->next_copy)->prev_copy = ds;
+        si->next_copy = ds;
         di->is_const = si->is_const;
         di->val = si->val;
     }
@@ -702,7 +713,7 @@ void tcg_optimize(TCGContext *s)
                 }
                 if (temp_is_const(args[1]) && temp_info(args[1])->val == 0) {
                     op->opc = neg_op;
-                    reset_temp(args[0]);
+                    reset_temp(arg_temp(args[0]));
                     args[1] = args[2];
                     continue;
                 }
@@ -758,7 +769,7 @@ void tcg_optimize(TCGContext *s)
                     break;
                 }
                 op->opc = not_op;
-                reset_temp(args[0]);
+                reset_temp(arg_temp(args[0]));
                 args[1] = args[i];
                 continue;
             }
@@ -1260,7 +1271,7 @@ void tcg_optimize(TCGContext *s)
                 /* Simplify LT/GE comparisons vs zero to a single compare
                    vs the high word of the input.  */
             do_setcond_high:
-                reset_temp(args[0]);
+                reset_temp(arg_temp(args[0]));
                 temp_info(args[0])->mask = 1;
                 op->opc = INDEX_op_setcond_i32;
                 args[1] = args[2];
@@ -1284,7 +1295,7 @@ void tcg_optimize(TCGContext *s)
                     goto do_default;
                 }
             do_setcond_low:
-                reset_temp(args[0]);
+                reset_temp(arg_temp(args[0]));
                 temp_info(args[0])->mask = 1;
                 op->opc = INDEX_op_setcond_i32;
                 args[2] = args[3];
@@ -1317,7 +1328,7 @@ void tcg_optimize(TCGContext *s)
                   & (TCG_CALL_NO_READ_GLOBALS | TCG_CALL_NO_WRITE_GLOBALS))) {
                 for (i = 0; i < nb_globals; i++) {
                     if (test_bit(i, temps_used.l)) {
-                        reset_temp(i);
+                        reset_temp(&s->temps[i]);
                     }
                 }
             }
@@ -1335,7 +1346,7 @@ void tcg_optimize(TCGContext *s)
             } else {
         do_reset_output:
                 for (i = 0; i < nb_oargs; i++) {
-                    reset_temp(args[i]);
+                    reset_temp(arg_temp(args[i]));
                     /* Save the corresponding known-zero bits mask for the
                        first output argument (only one supported so far). */
                     if (i == 0) {

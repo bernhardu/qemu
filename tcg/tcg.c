@@ -773,11 +773,11 @@ void tcg_gen_callN(TCGContext *s, void *func, TCGArg ret,
 #else
         if (TCG_TARGET_REG_BITS < 64 && (sizemask & 1)) {
 #ifdef HOST_WORDS_BIGENDIAN
-            s->gen_opparam_buf[pi++] = ret + 1;
+            s->gen_opparam_buf[pi++] = ret + sizeof(TCGTemp);
             s->gen_opparam_buf[pi++] = ret;
 #else
             s->gen_opparam_buf[pi++] = ret;
-            s->gen_opparam_buf[pi++] = ret + 1;
+            s->gen_opparam_buf[pi++] = ret + sizeof(TCGTemp);
 #endif
             nb_rets = 2;
         } else {
@@ -810,11 +810,11 @@ void tcg_gen_callN(TCGContext *s, void *func, TCGArg ret,
               have to get more complicated to differentiate between
               stack arguments and register arguments.  */
 #if defined(HOST_WORDS_BIGENDIAN) != defined(TCG_TARGET_STACK_GROWSUP)
-            s->gen_opparam_buf[pi++] = args[i] + 1;
+            s->gen_opparam_buf[pi++] = args[i] + sizeof(TCGTemp);
             s->gen_opparam_buf[pi++] = args[i];
 #else
             s->gen_opparam_buf[pi++] = args[i];
-            s->gen_opparam_buf[pi++] = args[i] + 1;
+            s->gen_opparam_buf[pi++] = args[i] + sizeof(TCGTemp);
 #endif
             real_args += 2;
             continue;
@@ -1633,7 +1633,7 @@ static void liveness_pass_1(TCGContext *s)
 static bool liveness_pass_2(TCGContext *s)
 {
     int nb_globals = s->nb_globals;
-    int i, oi, oi_next;
+    int i, oi, oi_next, n;
     bool changes = false;
 
     /* Create a temporary for each indirect global.  */
@@ -1644,9 +1644,15 @@ static bool liveness_pass_2(TCGContext *s)
             dts->type = its->type;
             dts->base_type = its->base_type;
             its->state_ptr = dts;
+        } else {
+            its->state_ptr = NULL;
         }
         /* All globals begin dead.  */
         its->state = TS_DEAD;
+    }
+    for (n = s->nb_temps; i < n; ++i) {
+        TCGTemp *its = &s->temps[i];
+        its->state_ptr = NULL;
     }
 
     for (oi = s->gen_op_buf[0].next; oi != 0; oi = oi_next) {
@@ -1695,8 +1701,8 @@ static bool liveness_pass_2(TCGContext *s)
                     TCGOp *lop = tcg_op_insert_before(s, op, lopc, 3);
                     TCGArg *largs = &s->gen_opparam_buf[lop->args];
 
-                    largs[0] = temp_idx(dir_ts);
-                    largs[1] = temp_idx(arg_ts->mem_base);
+                    largs[0] = (uintptr_t)dir_ts;
+                    largs[1] = (uintptr_t)arg_ts->mem_base;
                     largs[2] = arg_ts->mem_offset;
 
                     /* Loaded, but synced with memory.  */
@@ -1713,7 +1719,7 @@ static bool liveness_pass_2(TCGContext *s)
             if (arg_ts) {
                 dir_ts = arg_ts->state_ptr;
                 if (dir_ts) {
-                    args[i] = temp_idx(dir_ts);
+                    args[i] = (uintptr_t)dir_ts;
                     changes = true;
                     if (IS_DEAD_ARG(i)) {
                         arg_ts->state = TS_DEAD;
@@ -1755,7 +1761,7 @@ static bool liveness_pass_2(TCGContext *s)
             if (dir_ts == 0) {
                 continue;
             }
-            args[i] = temp_idx(dir_ts);
+            args[i] = (uintptr_t)dir_ts;
             changes = true;
 
             /* The output is now live and modified.  */
@@ -1769,8 +1775,8 @@ static bool liveness_pass_2(TCGContext *s)
                 TCGOp *sop = tcg_op_insert_after(s, op, sopc, 3);
                 TCGArg *sargs = &s->gen_opparam_buf[sop->args];
 
-                sargs[0] = temp_idx(dir_ts);
-                sargs[1] = temp_idx(arg_ts->mem_base);
+                sargs[0] = (uintptr_t)dir_ts;
+                sargs[1] = (uintptr_t)arg_ts->mem_base;
                 sargs[2] = arg_ts->mem_offset;
 
                 arg_ts->state = TS_MEM;
