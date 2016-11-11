@@ -2226,7 +2226,6 @@ static void gen_set_sr(CPUM68KState *env, DisasContext *s, uint16_t insn,
     }
 }
 
-
 DISAS_INSN(move_to_ccr)
 {
     gen_set_sr(env, s, insn, 1);
