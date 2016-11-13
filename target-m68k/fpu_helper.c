@@ -307,3 +307,9 @@ void HELPER(update_fpsr)(CPUM68KState *env)
 
     env->fpsr = (env->fpsr & ~FCCF_MASK) | fpcc;
 }
+
+void HELPER(fmovem)(CPUM68KState *env, uint32_t opsize,
+                    uint32_t mode, uint32_t mask)
+{
+    fprintf(stderr, "MISSING HELPER fmovem\n");
+}
