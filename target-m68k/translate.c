@@ -4253,79 +4253,172 @@ undef:
     disas_undef_fpu(env, s, insn);
 }
 
+static void gen_fcc_cond(DisasCompare *c, DisasContext *s, int cond)
+{
+    TCGv flag = tcg_temp_new();
+
+    gen_helper_compare_FP0(flag, cpu_env);
+
+    /* TODO: Raise BSUN exception.  */
+
+    c->g1 = 1;
+    c->v1 = flag;
+    c->g2 = 0;
+
+    switch (cond & 0xf) {
+    case 0:  /* False */
+        c->v1 = c->v2;
+        c->tcond = TCG_COND_NEVER;
+        break;
+    case 1:  /* Equal Z (flag == 0) */
+        c->v2 = tcg_const_i32(0);
+        c->g2 = 1;
+        c->tcond = TCG_COND_EQ;
+        break;
+    case 2:  /* Ordered Greater Than (flag == 1) */
+        c->v2 = tcg_const_i32(1);
+        c->g2 = 1;
+        c->tcond = TCG_COND_EQ;
+        break;
+    case 3: /* Ordered Greater Than or Equal (flag == 0 or == 1) */
+        c->v2 = tcg_const_i32(1);
+        c->g2 = 1;
+        c->tcond = TCG_COND_LEU;
+        break;
+    case 4: /* Ordered Less Than (flag == -1) */
+        c->v2 = tcg_const_i32(0);
+        c->g2 = 1;
+        c->tcond = TCG_COND_LT;
+        break;
+    case 5: /* Ordered Less Than or Equal (flag == -1 or == 0) */
+        c->v2 = tcg_const_i32(0);
+        c->g2 = 1;
+        c->tcond = TCG_COND_LE;
+        break;
+    case 6: /* Ordered Greater or Less Than (flag == -1 or == 1) */
+        c->v2 = tcg_const_i32(0);
+        c->g2 = 1;
+        tcg_gen_andi_i32(flag, flag, 1);
+        c->tcond = TCG_COND_NE;
+        break;
+    case 7: /* Ordered (flag == 2)*/
+        c->v2 = tcg_const_i32(2);
+        c->g2 = 1;
+        c->tcond = TCG_COND_EQ;
+        break;
+    case 8: /* Unordered (flag < 2) */
+        c->v2 = tcg_const_i32(2);
+        c->g2 = 1;
+        c->tcond = TCG_COND_LT;
+        break;
+    case 9: /* Unordered or Equal (flag == 0 or == 2) */
+        c->v2 = tcg_const_i32(0);
+        c->g2 = 1;
+        c->tcond = TCG_COND_EQ;
+        tcg_gen_andi_i32(flag, flag, 1);
+        break;
+    case 10: /* Unordered or Greater Than (flag > 0) */
+        c->v2 = tcg_const_i32(0);
+        c->g2 = 1;
+        c->tcond = TCG_COND_GT;
+        break;
+    case 11: /* Unordered or Greater or Equal (flag >= 0) */
+        c->v2 = tcg_const_i32(0);
+        c->g2 = 1;
+        c->tcond = TCG_COND_GE;
+        break;
+    case 12: /* Unordered or Less Than (flag == -1 or == 2) */
+        c->v2 = tcg_const_i32(2);
+        c->g2 = 1;
+        c->tcond = TCG_COND_GEU;
+        break;
+    case 13: /* Unordered or Less or Equal (flag != 1) */
+        c->v2 = tcg_const_i32(1);
+        c->g2 = 1;
+        c->tcond = TCG_COND_NE;
+        break;
+    case 14: /* Not Equal (flag != 0) */
+        c->v2 = tcg_const_i32(0);
+        c->g2 = 1;
+        c->tcond = TCG_COND_NE;
+        break;
+    case 15: /* True */
+        c->v1 = c->v2;
+        c->tcond = TCG_COND_ALWAYS;
+        break;
+    }
+}
+
+static void gen_fjmpcc(DisasContext *s, int cond, TCGLabel *l1)
+{
+    DisasCompare c;
+
+    gen_fcc_cond(&c, s, cond);
+    tcg_gen_brcond_i32(c.tcond, c.v1, c.v2, l1);
+    free_cond(&c);
+}
+
 DISAS_INSN(fbcc)
 {
     uint32_t offset;
-    uint32_t addr;
-    TCGv flag;
+    uint32_t base;
     TCGLabel *l1;
 
-    addr = s->pc;
-    offset = cpu_ldsw_code(env, s->pc);
-    s->pc += 2;
+    base = s->pc;
+    offset = (int16_t)read_im16(env, s);
     if (insn & (1 << 6)) {
         offset = (offset << 16) | read_im16(env, s);
     }
 
     l1 = gen_new_label();
-    /* TODO: Raise BSUN exception.  */
-    flag = tcg_temp_new();
-    gen_helper_compare_FP0(flag, cpu_env);
-    /* Jump to l1 if condition is true.  */
-    switch (insn & 0xf) {
-    case 0: /* f */
-        break;
-    case 1: /* eq (=0) */
-        tcg_gen_brcond_i32(TCG_COND_EQ, flag, tcg_const_i32(0), l1);
-        break;
-    case 2: /* ogt (=1) */
-        tcg_gen_brcond_i32(TCG_COND_EQ, flag, tcg_const_i32(1), l1);
-        break;
-    case 3: /* oge (=0 or =1) */
-        tcg_gen_brcond_i32(TCG_COND_LEU, flag, tcg_const_i32(1), l1);
-        break;
-    case 4: /* olt (=-1) */
-        tcg_gen_brcond_i32(TCG_COND_LT, flag, tcg_const_i32(0), l1);
-        break;
-    case 5: /* ole (=-1 or =0) */
-        tcg_gen_brcond_i32(TCG_COND_LE, flag, tcg_const_i32(0), l1);
-        break;
-    case 6: /* ogl (=-1 or =1) */
-        tcg_gen_andi_i32(flag, flag, 1);
-        tcg_gen_brcond_i32(TCG_COND_NE, flag, tcg_const_i32(0), l1);
-        break;
-    case 7: /* or (=2) */
-        tcg_gen_brcond_i32(TCG_COND_EQ, flag, tcg_const_i32(2), l1);
-        break;
-    case 8: /* un (<2) */
-        tcg_gen_brcond_i32(TCG_COND_LT, flag, tcg_const_i32(2), l1);
-        break;
-    case 9: /* ueq (=0 or =2) */
-        tcg_gen_andi_i32(flag, flag, 1);
-        tcg_gen_brcond_i32(TCG_COND_EQ, flag, tcg_const_i32(0), l1);
-        break;
-    case 10: /* ugt (>0) */
-        tcg_gen_brcond_i32(TCG_COND_GT, flag, tcg_const_i32(0), l1);
-        break;
-    case 11: /* uge (>=0) */
-        tcg_gen_brcond_i32(TCG_COND_GE, flag, tcg_const_i32(0), l1);
-        break;
-    case 12: /* ult (=-1 or =2) */
-        tcg_gen_brcond_i32(TCG_COND_GEU, flag, tcg_const_i32(2), l1);
-        break;
-    case 13: /* ule (!=1) */
-        tcg_gen_brcond_i32(TCG_COND_NE, flag, tcg_const_i32(1), l1);
-        break;
-    case 14: /* ne (!=0) */
-        tcg_gen_brcond_i32(TCG_COND_NE, flag, tcg_const_i32(0), l1);
-        break;
-    case 15: /* t */
-        tcg_gen_br(l1);
-        break;
-    }
+    gen_fjmpcc(s, insn & 0x3f, l1);
     gen_jmp_tb(s, 0, s->pc);
     gen_set_label(l1);
-    gen_jmp_tb(s, 1, addr + offset);
+    gen_jmp_tb(s, 1, base + offset);
+}
+
+DISAS_INSN(fscc_mem)
+{
+    TCGLabel *l1, *l2;
+    TCGv taddr;
+    TCGv addr;
+    uint16_t ext;
+
+    ext = read_im16(env, s);
+
+    taddr = gen_lea(env, s, insn, OS_BYTE);
+    if (IS_NULL_QREG(taddr)) {
+        gen_addr_fault(s);
+        return;
+    }
+    addr = tcg_temp_local_new ();
+    tcg_gen_mov_i32(addr, taddr);
+    l1 = gen_new_label();
+    l2 = gen_new_label();
+    gen_fjmpcc(s, ext & 0x3f, l1);
+    gen_store(s, OS_BYTE, addr, tcg_const_i32(0x00));
+    tcg_gen_br(l2);
+    gen_set_label(l1);
+    gen_store(s, OS_BYTE, addr, tcg_const_i32(0xff));
+    gen_set_label(l2);
+    tcg_temp_free(addr);
+}
+
+DISAS_INSN(fscc_reg)
+{
+    TCGLabel *l1;
+    TCGv reg;
+    uint16_t ext;
+
+    ext = read_im16(env, s);
+
+    reg = DREG(insn, 0);
+
+    l1 = gen_new_label();
+    tcg_gen_ori_i32(reg, reg, 0x000000ff);
+    gen_fjmpcc(s, ext & 0x3f, l1);
+    tcg_gen_andi_i32(reg, reg, 0xffffff00);
+    gen_set_label(l1);
 }
 
 DISAS_INSN(frestore)
@@ -4888,6 +4981,8 @@ void register_m68k_insns (CPUM68KState *env)
     BASE(undef_fpu, f000, f000);
     INSN(fpu,       f200, ffc0, CF_FPU);
     INSN(fpu,       f200, ffc0, FPU);
+    INSN(fscc_mem,  f240, ffc0, FPU);
+    INSN(fscc_reg,  f240, fff8, FPU);
     INSN(fbcc,      f280, ff80, CF_FPU);
     INSN(fbcc,      f280, ff80, FPU);
     INSN(frestore,  f340, ffc0, CF_FPU);
