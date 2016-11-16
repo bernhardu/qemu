@@ -330,11 +330,6 @@ void tcg_context_init(TCGContext *s)
 
     memset(s, 0, sizeof(*s));
 
-    /* Reserve global 0 so that, when foxing these integrals
-       as pointers, NULL is unused.  */
-    s->nb_globals = 1;
-    s->nb_temps = 1;
-
     /* Count total number of arguments and allocate the corresponding
        space */
     total_args = 0;
