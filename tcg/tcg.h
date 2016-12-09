@@ -481,9 +481,17 @@ static inline intptr_t QEMU_ARTIFICIAL GET_TCGV_PTR(TCGv_ptr t)
 #define TCG_CALL_NO_RWG_SE      (TCG_CALL_NO_RWG | TCG_CALL_NO_SE)
 #define TCG_CALL_NO_WG_SE       (TCG_CALL_NO_WG | TCG_CALL_NO_SE)
 
-/* used to align parameters */
-#define TCG_CALL_DUMMY_TCGV     MAKE_TCGV_I32(-1)
-#define TCG_CALL_DUMMY_ARG      ((TCGArg)(-1))
+/* Used to align parameters.  C.f. arg_may_inline_imm, in that we are
+   attempting to avoid patterns that overlap with common inline immediates.
+   For 32-bit host, we overlap 0xc0000000; for 64-bit host, we use an
+   encoding for an impossible 32-bit immediate (with bit 61 set).  */
+#if TCG_TARGET_REG_BITS == 32
+# define TCG_CALL_DUMMY_ARG     ((TCGArg)3 << 30)
+# define TCG_CALL_DUMMY_TCGV    MAKE_TCGV_I32(TCG_CALL_DUMMY_ARG)
+#else
+# define TCG_CALL_DUMMY_ARG     ((TCGArg)5 << 61)
+# define TCG_CALL_DUMMY_TCGV    MAKE_TCGV_I64(TCG_CALL_DUMMY_ARG)
+#endif
 
 typedef enum {
     /* Used to indicate the type of accesses on which ordering
@@ -735,6 +743,37 @@ static inline int tcg_op_buf_count(void)
 static inline bool tcg_op_buf_full(void)
 {
     return tcg_op_buf_count() >= OPC_MAX_SIZE;
+}
+
+/* Non-zero if VAL may be represented as an inline immediate.  */
+TCGArg arg_may_inline_imm(TCGType type, tcg_target_long val);
+
+/* True if ARG is representing an inline immediate.  */
+static inline bool arg_is_inline_imm(TCGArg arg)
+{
+    if (TCG_TARGET_REG_BITS == 32 && arg == TCG_CALL_DUMMY_ARG) {
+        return false;
+    }
+    return (tcg_target_long)arg < 0;
+}
+
+/* Extract the inline immediate that ARG holds.  */
+static inline tcg_target_long arg_inline_imm(TCGArg arg)
+{
+    if (TCG_TARGET_REG_BITS == 32) {
+        return sextract32(arg, 0, 31);
+    } else {
+        return sextract64(arg, 0, 62);
+    }
+}
+
+static inline TCGType arg_inline_imm_type(TCGArg arg)
+{
+    if (TCG_TARGET_REG_BITS == 32) {
+        return TCG_TYPE_I32;
+    } else {
+        return extract64(arg, 62, 1);
+    }
 }
 
 /* pool based memory allocation */

@@ -252,6 +252,39 @@ TCGLabel *gen_new_label(void)
 
 #include "tcg-target.inc.c"
 
+TCGArg arg_may_inline_imm(TCGType type, tcg_target_long val)
+{
+    tcg_target_long ival;
+
+    if (TCG_TARGET_REG_BITS == 32) {
+        if (type == TCG_TYPE_I64) {
+            return 0;
+        }
+        ival = sextract32(val, 0, 31);
+        if (ival != val) {
+            return 0;
+        }
+        /* MSB=1 -> inline immediate.  */
+        val |= 0x80000000u;
+        if (val == TCG_CALL_DUMMY_ARG) {
+            return 0;
+        }
+        return val;
+    } else {
+        if (type == TCG_TYPE_I32) {
+            /* MSB=1 -> inline immediate; MSB-1=0 -> I32.  */
+            return deposit64((int32_t)val, 62, 2, 2);
+        } else {
+            ival = sextract64(val, 0, 62);
+            if (ival != val) {
+                return 0;
+            }
+            /* MSB=1 -> inline immediate; MSB-1=1 -> I64.  */
+            return deposit64(val, 62, 2, 3);
+        }
+    }
+}
+
 /* pool based memory allocation */
 void *tcg_malloc_internal(TCGContext *s, int size)
 {
@@ -1054,14 +1087,21 @@ void tcg_dump_ops(TCGContext *s)
             col += qemu_log(" %s %s,$0x%" TCG_PRIlx ",$%d", def->name,
                             tcg_find_helper(s, op->args[nb_oargs + nb_iargs]),
                             op->args[nb_oargs + nb_iargs + 1], nb_oargs);
-            for (i = 0; i < nb_oargs; i++) {
+
+            k = 0;
+            for (i = 0; i < nb_oargs; i++, k++) {
                 col += qemu_log(",%s", tcg_get_arg_str_idx(s, buf, sizeof(buf),
                                                            op->args[i]));
             }
-            for (i = 0; i < nb_iargs; i++) {
-                TCGArg arg = op->args[nb_oargs + i];
-                const char *t = "<dummy>";
-                if (arg != TCG_CALL_DUMMY_ARG) {
+            for (i = 0; i < nb_iargs; i++, k++) {
+                TCGArg arg = op->args[k];
+                const char *t;
+                if (arg == TCG_CALL_DUMMY_ARG) {
+                    t = "<dummy>";
+                } else if (arg_is_inline_imm(arg)) {
+                    col += qemu_log(",$0x%" TCG_PRIlx, arg_inline_imm(arg));
+                    continue;
+                } else {
                     t = tcg_get_arg_str_idx(s, buf, sizeof(buf), arg);
                 }
                 col += qemu_log(",%s", t);
@@ -1074,19 +1114,25 @@ void tcg_dump_ops(TCGContext *s)
             nb_cargs = def->nb_cargs;
 
             k = 0;
-            for (i = 0; i < nb_oargs; i++) {
+            for (i = 0; i < nb_oargs; i++, k++) {
                 if (k != 0) {
                     col += qemu_log(",");
                 }
                 col += qemu_log("%s", tcg_get_arg_str_idx(s, buf, sizeof(buf),
-                                                          op->args[k++]));
+                                                          op->args[k]));
             }
-            for (i = 0; i < nb_iargs; i++) {
+            for (i = 0; i < nb_iargs; i++, k++) {
+                TCGArg arg = op->args[k];
                 if (k != 0) {
                     col += qemu_log(",");
                 }
-                col += qemu_log("%s", tcg_get_arg_str_idx(s, buf, sizeof(buf),
-                                                          op->args[k++]));
+                if (arg_is_inline_imm(arg)) {
+                    col += qemu_log("$0x%" TCG_PRIlx, arg_inline_imm(arg));
+                } else {
+                    col += qemu_log("%s", tcg_get_arg_str_idx(s, buf,
+                                                              sizeof(buf),
+                                                              op->args[k]));
+                }
             }
             switch (c) {
             case INDEX_op_brcond_i32:
@@ -1482,7 +1528,8 @@ static void liveness_pass_1(TCGContext *s, uint8_t *temp_state)
                     /* record arguments that die in this helper */
                     for (i = nb_oargs; i < nb_iargs + nb_oargs; i++) {
                         arg = op->args[i];
-                        if (arg != TCG_CALL_DUMMY_ARG) {
+                        if (arg != TCG_CALL_DUMMY_ARG
+                            && !arg_is_inline_imm(arg)) {
                             if (temp_state[arg] & TS_DEAD) {
                                 arg_life |= DEAD_ARG << i;
                             }
@@ -1491,7 +1538,8 @@ static void liveness_pass_1(TCGContext *s, uint8_t *temp_state)
                     /* input arguments are live for preceding opcodes */
                     for (i = nb_oargs; i < nb_iargs + nb_oargs; i++) {
                         arg = op->args[i];
-                        if (arg != TCG_CALL_DUMMY_ARG) {
+                        if (arg != TCG_CALL_DUMMY_ARG
+                            && !arg_is_inline_imm(arg)) {
                             temp_state[arg] &= ~TS_DEAD;
                         }
                     }
@@ -1626,13 +1674,17 @@ static void liveness_pass_1(TCGContext *s, uint8_t *temp_state)
                 /* record arguments that die in this opcode */
                 for (i = nb_oargs; i < nb_oargs + nb_iargs; i++) {
                     arg = op->args[i];
-                    if (temp_state[arg] & TS_DEAD) {
+                    if (!arg_is_inline_imm(arg)
+                        && (temp_state[arg] & TS_DEAD)) {
                         arg_life |= DEAD_ARG << i;
                     }
                 }
                 /* input arguments are live for preceding opcodes */
                 for (i = nb_oargs; i < nb_oargs + nb_iargs; i++) {
-                    temp_state[op->args[i]] &= ~TS_DEAD;
+                    arg = op->args[i];
+                    if (!arg_is_inline_imm(arg)) {
+                        temp_state[arg] &= ~TS_DEAD;
+                    }
                 }
             }
             break;
@@ -1700,7 +1752,8 @@ static bool liveness_pass_2(TCGContext *s, uint8_t *temp_state)
         /* Make sure that input arguments are available.  */
         for (i = nb_oargs; i < nb_iargs + nb_oargs; i++) {
             arg = op->args[i];
-            /* Note this unsigned test catches TCG_CALL_ARG_DUMMY too.  */
+            /* Note this unsigned test catches TCG_CALL_ARG_DUMMY
+               and arg_is_inline_imm too.  */
             if (arg < nb_globals) {
                 dir = dir_temps[arg];
                 if (dir != 0 && temp_state[arg] == TS_DEAD) {
@@ -2125,6 +2178,13 @@ static void tcg_reg_alloc_mov(TCGContext *s, const TCGOp *op)
 
     tcg_regset_set(allocated_regs, s->reserved_regs);
     ots = &s->temps[op->args[0]];
+
+    /* If the input is a constant, defer to movi.  */
+    if (arg_is_inline_imm(op->args[1])) {
+        tcg_reg_alloc_do_movi(s, ots, arg_inline_imm(op->args[1]), arg_life);
+        return;
+    }
+
     ts = &s->temps[op->args[1]];
 
     /* Note that otype != itype for no-op truncation.  */
@@ -2219,6 +2279,24 @@ static void tcg_reg_alloc_op(TCGContext *s, const TCGOp *op)
         i = def->sorted_args[nb_oargs + k];
         arg = op->args[i];
         arg_ct = &def->args_ct[i];
+
+        if (arg_is_inline_imm(arg)) {
+            TCGType type = arg_inline_imm_type(arg);
+            tcg_target_long val = arg_inline_imm(arg);
+            if (tcg_target_const_match(val, type, arg_ct)) {
+                /* constant is OK for instruction */
+                const_args[i] = 1;
+                new_args[i] = val;
+            } else {
+                /* ??? Remember the constant for future use.  */
+                reg = tcg_reg_alloc(s, arg_ct->u.regs, allocated_regs, 0);
+                tcg_out_movi(s, type, reg, val);
+                const_args[i] = 0;
+                new_args[i] = reg;
+            }
+            goto iarg_end;
+        }
+
         ts = &s->temps[arg];
 
         if (ts->val_type == TEMP_VAL_CONST
@@ -2398,7 +2476,18 @@ static void tcg_reg_alloc_call(TCGContext *s, TCGOp *op)
 #ifdef TCG_TARGET_STACK_GROWSUP
         stack_offset -= sizeof(tcg_target_long);
 #endif
-        if (arg != TCG_CALL_DUMMY_ARG) {
+        if (arg == TCG_CALL_DUMMY_ARG) {
+            /* do nothing */
+        } else if (arg_is_inline_imm(arg)) {
+            TCGType type = arg_inline_imm_type(arg);
+            tcg_target_long val = arg_inline_imm(arg);
+            if (!tcg_out_sti(s, type, val, TCG_REG_CALL_STACK, stack_offset)) {
+                reg = tcg_reg_alloc(s, tcg_target_available_regs[type],
+                                    s->reserved_regs, false);
+                tcg_out_movi(s, type, reg, val);
+                tcg_out_st(s, type, ts->reg, TCG_REG_CALL_STACK, stack_offset);
+            }
+        } else {
             ts = &s->temps[arg];
             temp_load(s, ts, tcg_target_available_regs[ts->type],
                       s->reserved_regs);
@@ -2413,25 +2502,29 @@ static void tcg_reg_alloc_call(TCGContext *s, TCGOp *op)
     tcg_regset_set(allocated_regs, s->reserved_regs);
     for (i = 0; i < nb_regs; i++) {
         arg = op->args[nb_oargs + i];
-        if (arg != TCG_CALL_DUMMY_ARG) {
-            ts = &s->temps[arg];
-            reg = tcg_target_call_iarg_regs[i];
-            tcg_reg_free(s, reg, allocated_regs);
+        reg = tcg_target_call_iarg_regs[i];
+        tcg_reg_free(s, reg, allocated_regs);
 
+        if (arg == TCG_CALL_DUMMY_ARG) {
+            continue;
+        } else if (arg_is_inline_imm(arg)) {
+            TCGType type = arg_inline_imm_type(arg);
+            tcg_target_long val = arg_inline_imm(arg);
+            tcg_out_movi(s, type, reg, val);
+        } else {
+            ts = &s->temps[arg];
             if (ts->val_type == TEMP_VAL_REG) {
                 if (ts->reg != reg) {
                     tcg_out_mov(s, ts->type, reg, ts->reg);
                 }
             } else {
                 TCGRegSet arg_set;
-
                 tcg_regset_clear(arg_set);
                 tcg_regset_set_reg(arg_set, reg);
                 temp_load(s, ts, arg_set, allocated_regs);
             }
-
-            tcg_regset_set_reg(allocated_regs, reg);
         }
+        tcg_regset_set_reg(allocated_regs, reg);
     }
     
     /* mark dead temporaries and free the associated registers */
