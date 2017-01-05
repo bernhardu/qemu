@@ -1,0 +1,44 @@
+
+mkdir debian-hppa-chroot; cd debian-hppa-chroot
+
+git clone https://github.com/bernhardu/qemu.git
+cd qemu
+git checkout tgt-hppa
+./configure --target-list=hppa-linux-user --static --enable-debug
+make -j2
+cd ..
+
+su
+    apt-get install debian-ports-archive-keyring
+
+    mkdir -p chroot/usr/bin
+    cp -a qemu/hppa-linux-user/qemu-hppa chroot/usr/bin/qemu-hppa-static
+
+    echo -1 > /proc/sys/fs/binfmt_misc/hppa
+    echo ':hppa:M::\x7f\x45\x4c\x46\x01\x02\x01\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x0f:\xff\xff\xff\xff\xff\xfe\xfe\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff:/usr/bin/qemu-hppa-static:' >/proc/sys/fs/binfmt_misc/register
+    export QEMU_STACK_SIZE=$((8388608*8))
+        # helps to get less often: /someshellscript.sh: 22: /someshellscript.sh: Out of space
+
+
+    debootstrap \
+        --arch=hppa \
+        --variant=buildd \
+        --keyring=/usr/share/keyrings/debian-ports-archive-keyring.gpg \
+        --include=debian-ports-archive-keyring \
+        unstable \
+        chroot \
+        http://192.168.178.25:9999/debian-otherarch-ftp.ports.debian.org/
+
+    env -i TERM=xterm LANG=de_DE.UTF-8 /usr/sbin/chroot chroot /bin/su -l root
+        apt-get install debian-ports-archive-keyring dialog apt-utils nano
+
+        # apt-key update
+        # Illegal instruction
+
+        adduser bernhard
+        exit
+
+    env -i TERM=xterm LANG=de_DE.UTF-8 /usr/sbin/chroot chroot /bin/su -l bernhard
+        uname -a
+            #Linux rechner 4.8.0-2-amd64 #1 SMP Debian 4.8.11-1 (2016-12-02) hppa GNU/Linux
+        exit
